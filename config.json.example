@@ -1,0 +1,8 @@
+{
+  "accounts": [
+    {
+      "email": "your-email@gmail.com",
+      "password": "your-16-char-app-password"
+    }
+  ]
+}
