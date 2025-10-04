@@ -9,12 +9,12 @@ import (
 
 // TrayUI manages the system tray UI
 type TrayUI struct {
-	clients       []*IMAPClient
-	state         *State
-	titleItem     *systray.MenuItem
-	accountItems  map[string]*systray.MenuItem
-	quitItem      *systray.MenuItem
-	refreshItem   *systray.MenuItem
+	clients      []*IMAPClient
+	state        *State
+	titleItem    *systray.MenuItem
+	accountItems map[string]*systray.MenuItem
+	quitItem     *systray.MenuItem
+	refreshItem  *systray.MenuItem
 }
 
 // NewTrayUI creates a new TrayUI
