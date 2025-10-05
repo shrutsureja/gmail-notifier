@@ -6,6 +6,7 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 - 📧 Real-time email notifications using IMAP IDLE
 - 👥 Support for multiple Gmail accounts
 - 🔒 Secure authentication using Gmail App Passwords
+- 🔐 **Encrypted password storage** with build-time encryption keys
 - 🖥️ System tray integration for Ubuntu
 - 💾 Persistent state management
 - 🔄 Automatic reconnection on network issues
@@ -66,7 +67,10 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
    }
    ```
 
-   **Important:** Use App Passwords, NOT your regular Gmail password!
+   **Important:** 
+   - Use App Passwords, NOT your regular Gmail password!
+   - Passwords will be automatically encrypted when you first run the application
+   - The config file is stored with restricted permissions (0600) for security
 
 ## Usage
 
@@ -86,17 +90,17 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 
 ```bash
 # Build the binary
-go build -o gmail-notifier
+./build.sh
 
-# Create package structure
-mkdir -p debian/DEBIAN debian/usr/bin debian/usr/share/applications
-
-# Copy files
-cp gmail-notifier debian/usr/bin/
-
-# Build .deb
-dpkg-deb --build debian gmail-notifier-2_1.0.0_amd64.deb
+# This will:
+# 1. Build the binary
+# 2. Create the .deb package
 ```
+
+**Note:** The encryption key is generated automatically on first use (not at build time), so:
+- Each user has their own unique encryption key
+- Upgrading to a new version preserves encrypted passwords
+- No need to re-enter passwords when updating the app
 
 ## Project Structure
 
@@ -147,6 +151,24 @@ dpkg-deb --build debian gmail-notifier-2_1.0.0_amd64.deb
 - Ensure you're using App Passwords, not regular passwords
 - Check internet connectivity
 - Gmail may temporarily block new logins - check your Gmail security page
+
+## Security
+
+This application implements several security measures to protect your Gmail App Passwords:
+
+1. **Encrypted Storage**: Passwords in the config file are encrypted using AES-GCM encryption
+2. **User-Specific Encryption Keys**: Each user has their own unique encryption key stored securely on their system
+3. **Persistent Keys Across Updates**: The encryption key persists across version upgrades, so you don't need to re-enter passwords when updating
+4. **Restricted Permissions**: Config files and encryption keys are created with 0600 permissions (readable/writable only by owner)
+5. **No Hardcoded Secrets**: Encryption keys are randomly generated on first use, not hardcoded in source
+
+**Important Security Notes:**
+- The encryption key is stored at `~/.config/gmail-notifier/.encryption_key` with 0600 permissions
+- The config file (`~/.config/gmail-notifier/config.json`) contains encrypted passwords
+- Both files are protected by file system permissions (owner-only access)
+- Keep your home directory secure and don't share these files
+- When you first add a password (in plaintext), it will be automatically encrypted on the first save
+- **The encryption key persists across version upgrades** - you won't need to re-enter passwords when updating the app
 
 ## License
 

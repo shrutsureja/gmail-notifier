@@ -4,5 +4,6 @@
       "email": "your-email@gmail.com",
       "password": "your-16-char-app-password"
     }
-  ]
+  ],
+  "_comment": "Passwords will be automatically encrypted when the app first runs. You can enter them in plain text here."
 }
