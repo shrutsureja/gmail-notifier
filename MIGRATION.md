@@ -11,11 +11,24 @@ The easiest way is to let the application automatically migrate your passwords:
 1. **Stop the application** if it's running
 2. **Update to the new version** (via .deb package or rebuild)
 3. **Run the application** - it will automatically:
+   - Generate a unique encryption key (stored in `~/.config/gmail-notifier/.encryption_key`)
    - Detect plaintext passwords
    - Encrypt them on the first save
    - Update your config file
 
 Your passwords will be preserved and automatically encrypted!
+
+### Upgrading Between Versions
+
+When upgrading from one version to another (e.g., 1.1 to 1.2):
+
+1. **Install the new version**
+2. **Run the application** - it will automatically:
+   - Use the existing encryption key
+   - Decrypt passwords with the same key
+   - Everything works seamlessly
+
+**No need to re-enter passwords when upgrading!** The encryption key persists across versions.
 
 ### Manual Migration (Optional)
 
@@ -66,31 +79,37 @@ You should see encrypted passwords (long base64 strings) instead of plaintext:
 
 **Solution:** 
 1. Check logs: `cat ~/.config/gmail-notifier/gmail-notifier.log`
-2. If you see decryption errors, delete the config and re-enter passwords
-3. Ensure you're using the correct binary (from the new build)
+2. If you see decryption errors, the encryption key may be corrupted
+3. Delete both files and start fresh:
+   ```bash
+   rm ~/.config/gmail-notifier/config.json
+   rm ~/.config/gmail-notifier/.encryption_key
+   ```
+4. Re-enter your passwords in a new config
 
 **Problem:** Passwords are still in plaintext
 
 **Solution:**
 1. Make sure you're running the new version
 2. Trigger a config save by adding/removing an account
-3. Check file permissions: `ls -la ~/.config/gmail-notifier/config.json`
+3. Check file permissions: `ls -la ~/.config/gmail-notifier/`
 
 ### Important Notes
 
-⚠️ **Different builds, different keys**: Each build has a unique encryption key. If you rebuild the application, you'll need to re-enter your passwords.
+✅ **Version upgrades are seamless**: The encryption key persists, so passwords remain encrypted and accessible across version upgrades.
+
+✅ **Each user has their own key**: Every user on the system has a unique encryption key, providing better security than a shared key.
 
 ✅ **Backward compatible**: Old plaintext passwords work with the new version - they'll be encrypted automatically.
 
-🔒 **Secure**: Encrypted passwords cannot be decrypted without the specific binary that encrypted them.
+🔒 **Secure**: The encryption key is stored with 0600 permissions (owner-only access).
 
 ## For Developers Rebuilding
 
-If you're rebuilding from source:
+When rebuilding from source:
 
-1. **Export your passwords** before rebuilding (save them somewhere secure)
-2. **Run `./build.sh`** to create a new build with a new encryption key
-3. **Delete the old config:** `rm ~/.config/gmail-notifier/config.json`
-4. **Re-enter your passwords** in the new config
+1. **Build the new version:** `./build.sh`
+2. **Run the application** - it will use the existing encryption key
+3. **No need to re-enter passwords** - the key persists across rebuilds
 
-This is necessary because each build generates a unique encryption key that's embedded in the binary.
+The encryption key is stored in your config directory, not in the binary, so rebuilding doesn't affect it.

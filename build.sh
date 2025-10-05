@@ -3,13 +3,9 @@ set -e
 
 echo "Building Gmail Notifier..."
 
-# Generate a random encryption key for this build
-ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
-echo "Generated encryption key for this build"
-
-# Build the binary with the encryption key embedded
+# Build the binary
 echo "Compiling Go binary..."
-go build -ldflags "-X 'main.encryptionKey=${ENCRYPTION_KEY}'" -o gmail-notifier
+go build -o gmail-notifier
 
 # Create debian package structure
 echo "Creating package structure..."

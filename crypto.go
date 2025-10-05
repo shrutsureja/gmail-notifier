@@ -7,10 +7,49 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 )
 
-// encryptionKey is set at build time via -ldflags
-var encryptionKey = "default-insecure-key-change-me-build-time"
+// getEncryptionKey retrieves or creates the encryption key
+func getEncryptionKey() ([]byte, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	keyDir := filepath.Join(homeDir, ".config", "gmail-notifier")
+	keyPath := filepath.Join(keyDir, ".encryption_key")
+
+	// Create key directory if it doesn't exist
+	if err := os.MkdirAll(keyDir, 0700); err != nil {
+		return nil, err
+	}
+
+	// Try to read existing key
+	if keyData, err := os.ReadFile(keyPath); err == nil {
+		// Decode the base64-encoded key
+		key, err := base64.StdEncoding.DecodeString(string(keyData))
+		if err == nil && len(key) == 32 {
+			return key, nil
+		}
+		// If key is invalid, generate a new one
+	}
+
+	// Generate a new 32-byte encryption key
+	key := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return nil, err
+	}
+
+	// Save the key (base64 encoded for readability)
+	keyData := base64.StdEncoding.EncodeToString(key)
+	if err := os.WriteFile(keyPath, []byte(keyData), 0600); err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
 
 // EncryptPassword encrypts a password using AES-GCM
 func EncryptPassword(plaintext string) (string, error) {
@@ -18,8 +57,11 @@ func EncryptPassword(plaintext string) (string, error) {
 		return "", nil
 	}
 
-	// Derive a 32-byte key from the build-time key
-	key := deriveKey(encryptionKey)
+	// Get the encryption key (persistent, user-specific)
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -46,8 +88,11 @@ func DecryptPassword(ciphertext string) (string, error) {
 		return "", nil
 	}
 
-	// Derive a 32-byte key from the build-time key
-	key := deriveKey(encryptionKey)
+	// Get the encryption key (persistent, user-specific)
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
 
 	data, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
@@ -78,23 +123,4 @@ func DecryptPassword(ciphertext string) (string, error) {
 	}
 
 	return string(plaintext), nil
-}
-
-// deriveKey derives a 32-byte key from the build-time key
-func deriveKey(key string) []byte {
-	// Simple key derivation: pad or truncate to 32 bytes
-	derived := make([]byte, 32)
-	keyBytes := []byte(key)
-
-	if len(keyBytes) >= 32 {
-		copy(derived, keyBytes[:32])
-	} else {
-		copy(derived, keyBytes)
-		// Fill remaining with a predictable pattern based on the key
-		for i := len(keyBytes); i < 32; i++ {
-			derived[i] = keyBytes[i%len(keyBytes)] ^ byte(i)
-		}
-	}
-
-	return derived
 }

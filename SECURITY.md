@@ -24,35 +24,31 @@ All passwords in the config file are encrypted using AES-GCM (Galois/Counter Mod
 
 **Code Location:** `crypto.go`
 
-### 2. Build-Time Encryption Key
+### 2. User-Specific Persistent Encryption Key
 
-Each build of the application generates a unique random encryption key that is embedded into the binary at compile time.
+Each user has their own unique encryption key that is generated on first use and persists across version upgrades.
 
 **How it works:**
-1. During build, `openssl rand -base64 32` generates a random 32-byte key
-2. The key is injected into the binary using Go's `-ldflags -X` flag
-3. The key is stored in the `encryptionKey` variable in `crypto.go`
+1. On first run, a random 32-byte encryption key is generated
+2. The key is stored at `~/.config/gmail-notifier/.encryption_key` with 0600 permissions
+3. The same key is reused for all encryption/decryption operations
+4. **The key persists across version upgrades** - no need to re-enter passwords when updating
 
-**Build Script:** `build.sh`
+**Key Location:** `~/.config/gmail-notifier/.encryption_key`
 
-```bash
-# Generate random key
-ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
-
-# Embed in binary
-go build -ldflags "-X 'main.encryptionKey=${ENCRYPTION_KEY}'" -o gmail-notifier
-```
+**Build Script:** `build.sh` (no longer needs to generate keys)
 
 ### 3. Restricted File Permissions
 
-Config files are created with restrictive permissions to prevent unauthorized access:
+Config files and encryption keys are created with restrictive permissions to prevent unauthorized access:
 
 - Config directory: `0700` (rwx------)
 - Config file: `0600` (rw-------)
+- Encryption key file: `0600` (rw-------)
 
-This ensures only the file owner can read or write the config.
+This ensures only the file owner can read or write the config and encryption key.
 
-**Code Location:** `config.go` (LoadConfig and SaveConfig functions)
+**Code Location:** `config.go` and `crypto.go` (getEncryptionKey function)
 
 ### 4. Backward Compatibility
 
@@ -100,18 +96,20 @@ This implementation does NOT protect against:
 1. **Initial Setup:**
    - Create config file with plaintext passwords
    - Run the application - passwords are automatically encrypted
+   - An encryption key is automatically generated and stored
    - Check the config file - passwords are now encrypted strings
 
-2. **Rebuilding:**
-   - If you rebuild the application, the new binary will have a different encryption key
-   - You'll need to delete the config file and re-enter your passwords
-   - Alternatively, export passwords before rebuild and re-import after
+2. **Upgrading to New Version:**
+   - Install the new version
+   - Run the application with existing encrypted config
+   - **No need to re-enter passwords** - the encryption key persists across upgrades
+   - Everything works seamlessly
 
 ### For Developers
 
 1. **Building:**
    ```bash
-   ./build.sh  # Automatically generates key and builds
+   ./build.sh  # Simply builds the binary
    ```
 
 2. **Testing:**
@@ -119,26 +117,24 @@ This implementation does NOT protect against:
    go test -v crypto_test.go crypto.go
    ```
 
-3. **Manual Build (for development):**
+3. **Development Build:**
    ```bash
-   go build -o gmail-notifier  # Uses default key (insecure!)
+   go build -o gmail-notifier
    ```
-   
-   **Note:** Development builds use the default key. Always use `build.sh` for production builds.
 
 ## Implementation Files
 
-- `crypto.go`: Encryption/decryption functions
+- `crypto.go`: Encryption/decryption functions and key management
 - `crypto_test.go`: Tests for encryption functionality
 - `config.go`: Modified to encrypt on save and decrypt on load
-- `build.sh`: Modified to generate and embed encryption key
+- `build.sh`: Standard build script (no key generation needed)
 
 ## Future Improvements
 
 Potential enhancements for even better security:
 
-1. **System Keyring Integration**: Use system keyrings (GNOME Keyring, KWallet) to store passwords
-2. **Key Derivation**: Use PBKDF2 or Argon2 for key derivation
+1. **System Keyring Integration**: Use system keyrings (GNOME Keyring, KWallet) to store the encryption key
+2. **Key Derivation**: Use PBKDF2 or Argon2 for additional key derivation
 3. **Hardware Security**: Support for hardware security modules (HSM)
 4. **Secure Memory**: Use mlock/munlock to prevent password swapping
 5. **Auto-lock**: Implement timeout-based password clearing from memory

@@ -88,22 +88,19 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 
 ## Building the .deb Package
 
-The build process automatically generates a unique encryption key for each build:
-
 ```bash
-# Build the binary with embedded encryption key
+# Build the binary
 ./build.sh
 
 # This will:
-# 1. Generate a random encryption key
-# 2. Build the binary with the key embedded
-# 3. Create the .deb package
+# 1. Build the binary
+# 2. Create the .deb package
 ```
 
-**Note:** Each build will have a unique encryption key embedded in the binary. This means:
-- Passwords are encrypted using a key unique to each build
-- Different builds cannot decrypt each other's config files
-- If you rebuild the app, you'll need to re-enter your passwords in the config
+**Note:** The encryption key is generated automatically on first use (not at build time), so:
+- Each user has their own unique encryption key
+- Upgrading to a new version preserves encrypted passwords
+- No need to re-enter passwords when updating the app
 
 ## Project Structure
 
@@ -160,16 +157,18 @@ The build process automatically generates a unique encryption key for each build
 This application implements several security measures to protect your Gmail App Passwords:
 
 1. **Encrypted Storage**: Passwords in the config file are encrypted using AES-GCM encryption
-2. **Build-time Encryption Keys**: Each build generates a unique random encryption key that is embedded in the binary
-3. **Restricted Permissions**: Config files are created with 0600 permissions (readable/writable only by owner)
-4. **No Hardcoded Secrets**: The encryption key is randomly generated at build time, not hardcoded in source
+2. **User-Specific Encryption Keys**: Each user has their own unique encryption key stored securely on their system
+3. **Persistent Keys Across Updates**: The encryption key persists across version upgrades, so you don't need to re-enter passwords when updating
+4. **Restricted Permissions**: Config files and encryption keys are created with 0600 permissions (readable/writable only by owner)
+5. **No Hardcoded Secrets**: Encryption keys are randomly generated on first use, not hardcoded in source
 
 **Important Security Notes:**
+- The encryption key is stored at `~/.config/gmail-notifier/.encryption_key` with 0600 permissions
 - The config file (`~/.config/gmail-notifier/config.json`) contains encrypted passwords
-- The encryption key is embedded in the binary at build time
-- If you rebuild the application, you'll need to re-enter your passwords as the new binary will have a different encryption key
-- Keep your config directory secure and don't share the config file
+- Both files are protected by file system permissions (owner-only access)
+- Keep your home directory secure and don't share these files
 - When you first add a password (in plaintext), it will be automatically encrypted on the first save
+- **The encryption key persists across version upgrades** - you won't need to re-enter passwords when updating the app
 
 ## License
 

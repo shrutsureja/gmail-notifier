@@ -25,17 +25,19 @@ When the application starts:
 2. Detects password is plaintext (not base64 encrypted)
 3. Returns the password as-is (backward compatibility)
 4. Application uses plaintext password to connect to Gmail
+5. Encryption key is generated on first use and stored at `~/.config/gmail-notifier/.encryption_key`
 
 ## Step 3: Application Saves Config
 
 When config is saved (e.g., after adding/removing account):
 
 1. `SaveConfig()` is called
-2. For each account:
+2. `getEncryptionKey()` retrieves or creates the user's encryption key
+3. For each account:
    - Generate random 12-byte nonce
-   - Encrypt password with AES-GCM using build-time key
+   - Encrypt password with AES-GCM using the user's persistent key
    - Encode as base64 string
-3. Write encrypted config to file with 0600 permissions
+4. Write encrypted config to file with 0600 permissions
 
 ## Step 4: Config File After Encryption
 
@@ -57,11 +59,22 @@ After the first save, the config file looks like:
 On subsequent runs:
 
 1. `LoadConfig()` reads encrypted password
-2. `DecryptPassword()` decodes base64
-3. Extracts nonce (first 12 bytes)
-4. Decrypts using AES-GCM with build-time key
-5. Returns plaintext password to application
-6. Application uses decrypted password to connect to Gmail
+2. `getEncryptionKey()` retrieves the user's persistent encryption key
+3. `DecryptPassword()` decodes base64
+4. Extracts nonce (first 12 bytes)
+5. Decrypts using AES-GCM with the user's persistent key
+6. Returns plaintext password to application
+7. Application uses decrypted password to connect to Gmail
+
+## Step 6: Version Upgrades
+
+When upgrading to a new version:
+
+1. New version is installed
+2. Application starts and loads config
+3. `getEncryptionKey()` retrieves the **same** encryption key from `~/.config/gmail-notifier/.encryption_key`
+4. Passwords decrypt successfully using the persistent key
+5. **No need to re-enter passwords** - everything works seamlessly!
 
 ## Technical Details
 
@@ -70,9 +83,11 @@ On subsequent runs:
 ```
 Plaintext: "abcd efgh ijkl mnop"
     ↓
+Get or create user's encryption key from ~/.config/gmail-notifier/.encryption_key
+    ↓
 Generate random nonce (12 bytes)
     ↓
-AES-GCM encrypt with build-time key
+AES-GCM encrypt with user's persistent key
     ↓
 Prepend nonce to ciphertext
     ↓
@@ -86,38 +101,55 @@ Encrypted: "ynjQmJvpZxyGYJDxgg2MkcLi5mwprrq2UI5Yao7085R062LtRVAbFI9Flz3Dng4="
 ```
 Encrypted: "ynjQmJvpZxyGYJDxgg2MkcLi5mwprrq2UI5Yao7085R062LtRVAbFI9Flz3Dng4="
     ↓
+Get user's encryption key from ~/.config/gmail-notifier/.encryption_key
+    ↓
 Base64 decode
     ↓
 Extract nonce (first 12 bytes)
     ↓
 Extract ciphertext (remaining bytes)
     ↓
-AES-GCM decrypt with build-time key
+AES-GCM decrypt with user's persistent key
     ↓
 Plaintext: "abcd efgh ijkl mnop"
 ```
 
-### Key Generation (Build Time)
+### Key Generation (First Use)
 
-```bash
-# In build.sh
-ENCRYPTION_KEY=$(openssl rand -base64 32 | tr -d '\n')
-# Example output: "x0JQYs/038y0HvcrXefUInGkz+hbSGxyrUsPDuvQX8U="
-
-# Embed in binary
-go build -ldflags "-X 'main.encryptionKey=${ENCRYPTION_KEY}'" -o gmail-notifier
+```
+First run of application
+    ↓
+Check if ~/.config/gmail-notifier/.encryption_key exists
+    ↓
+If not exists:
+    Generate random 32-byte key
+    Base64 encode the key
+    Save to ~/.config/gmail-notifier/.encryption_key with 0600 permissions
+    ↓
+If exists:
+    Read and decode existing key
+    ↓
+Return 32-byte encryption key for use
 ```
 
-### Key Derivation
+### Key Persistence Across Upgrades
 
-```go
-// Build-time key (example): "x0JQYs/038y0HvcrXefUInGkz+hbSGxyrUsPDuvQX8U="
-//    ↓
-// Convert to bytes
-//    ↓
-// Ensure exactly 32 bytes (pad or truncate)
-//    ↓
-// Use with AES-256
+```
+Version 1.1 installed
+    ↓
+User runs app, encryption key created: ~/.config/gmail-notifier/.encryption_key
+    ↓
+Passwords encrypted with this key
+    ↓
+Version 1.2 released and installed
+    ↓
+User runs new version
+    ↓
+App reads SAME encryption key from ~/.config/gmail-notifier/.encryption_key
+    ↓
+Passwords decrypt successfully
+    ↓
+No re-entry needed!
 ```
 
 ## Security Notes
@@ -126,9 +158,11 @@ go build -ldflags "-X 'main.encryptionKey=${ENCRYPTION_KEY}'" -o gmail-notifier
 
 2. **Authenticated Encryption**: AES-GCM provides both encryption and authentication - any tampering will be detected
 
-3. **Build-Time Key**: Each build has a unique key, preventing cross-binary decryption
+3. **User-Specific Persistent Key**: Each user has their own unique key that persists across version upgrades
 
-4. **File Permissions**: Config stored with 0600 (owner read/write only)
+4. **File Permissions**: Both config and encryption key stored with 0600 (owner read/write only)
+
+5. **Version Upgrade Safe**: Encryption key persists, so no need to re-enter passwords when upgrading
 
 ## Code Flow
 
@@ -142,6 +176,8 @@ ui.go: LoadConfig()
 config.go: LoadConfig() reads file
     ↓
 config.go: DecryptPassword() for each account
+    ↓
+crypto.go: getEncryptionKey() - retrieves or creates user's key
     ↓
 crypto.go: Base64 decode → AES-GCM decrypt
     ↓

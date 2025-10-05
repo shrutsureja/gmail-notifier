@@ -54,12 +54,12 @@ func TestEncryptDecrypt(t *testing.T) {
 func TestDecryptPlaintextBackwardCompatibility(t *testing.T) {
 	// Test that plaintext passwords are returned as-is for backward compatibility
 	plaintext := "plain-text-password"
-	
+
 	decrypted, err := DecryptPassword(plaintext)
 	if err != nil {
 		t.Fatalf("DecryptPassword failed on plaintext: %v", err)
 	}
-	
+
 	if decrypted != plaintext {
 		t.Errorf("plaintext password should be returned as-is, got %q, want %q", decrypted, plaintext)
 	}
@@ -67,33 +67,33 @@ func TestDecryptPlaintextBackwardCompatibility(t *testing.T) {
 
 func TestEncryptionDifferentEachTime(t *testing.T) {
 	password := "test-password"
-	
+
 	encrypted1, err := EncryptPassword(password)
 	if err != nil {
 		t.Fatalf("EncryptPassword failed: %v", err)
 	}
-	
+
 	encrypted2, err := EncryptPassword(password)
 	if err != nil {
 		t.Fatalf("EncryptPassword failed: %v", err)
 	}
-	
+
 	// Due to random nonce, each encryption should be different
 	if encrypted1 == encrypted2 {
 		t.Errorf("expected different encrypted values for same password (due to random nonce)")
 	}
-	
+
 	// But both should decrypt to the same value
 	decrypted1, err := DecryptPassword(encrypted1)
 	if err != nil {
 		t.Fatalf("DecryptPassword failed: %v", err)
 	}
-	
+
 	decrypted2, err := DecryptPassword(encrypted2)
 	if err != nil {
 		t.Fatalf("DecryptPassword failed: %v", err)
 	}
-	
+
 	if decrypted1 != password || decrypted2 != password {
 		t.Errorf("both encryptions should decrypt to original password")
 	}
