@@ -6,6 +6,7 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 - 📧 Real-time email notifications using IMAP IDLE
 - 👥 Support for multiple Gmail accounts
 - 🔒 Secure authentication using Gmail App Passwords
+- 🔐 **Encrypted password storage** with build-time encryption keys
 - 🖥️ System tray integration for Ubuntu
 - 💾 Persistent state management
 - 🔄 Automatic reconnection on network issues
@@ -66,7 +67,10 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
    }
    ```
 
-   **Important:** Use App Passwords, NOT your regular Gmail password!
+   **Important:** 
+   - Use App Passwords, NOT your regular Gmail password!
+   - Passwords will be automatically encrypted when you first run the application
+   - The config file is stored with restricted permissions (0600) for security
 
 ## Usage
 
@@ -84,19 +88,22 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 
 ## Building the .deb Package
 
+The build process automatically generates a unique encryption key for each build:
+
 ```bash
-# Build the binary
-go build -o gmail-notifier
+# Build the binary with embedded encryption key
+./build.sh
 
-# Create package structure
-mkdir -p debian/DEBIAN debian/usr/bin debian/usr/share/applications
-
-# Copy files
-cp gmail-notifier debian/usr/bin/
-
-# Build .deb
-dpkg-deb --build debian gmail-notifier-2_1.0.0_amd64.deb
+# This will:
+# 1. Generate a random encryption key
+# 2. Build the binary with the key embedded
+# 3. Create the .deb package
 ```
+
+**Note:** Each build will have a unique encryption key embedded in the binary. This means:
+- Passwords are encrypted using a key unique to each build
+- Different builds cannot decrypt each other's config files
+- If you rebuild the app, you'll need to re-enter your passwords in the config
 
 ## Project Structure
 
@@ -147,6 +154,22 @@ dpkg-deb --build debian gmail-notifier-2_1.0.0_amd64.deb
 - Ensure you're using App Passwords, not regular passwords
 - Check internet connectivity
 - Gmail may temporarily block new logins - check your Gmail security page
+
+## Security
+
+This application implements several security measures to protect your Gmail App Passwords:
+
+1. **Encrypted Storage**: Passwords in the config file are encrypted using AES-GCM encryption
+2. **Build-time Encryption Keys**: Each build generates a unique random encryption key that is embedded in the binary
+3. **Restricted Permissions**: Config files are created with 0600 permissions (readable/writable only by owner)
+4. **No Hardcoded Secrets**: The encryption key is randomly generated at build time, not hardcoded in source
+
+**Important Security Notes:**
+- The config file (`~/.config/gmail-notifier/config.json`) contains encrypted passwords
+- The encryption key is embedded in the binary at build time
+- If you rebuild the application, you'll need to re-enter your passwords as the new binary will have a different encryption key
+- Keep your config directory secure and don't share the config file
+- When you first add a password (in plaintext), it will be automatically encrypted on the first save
 
 ## License
 

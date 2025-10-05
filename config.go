@@ -28,7 +28,7 @@ func LoadConfig() (*Config, error) {
 	configPath := filepath.Join(configDir, "config.json")
 
 	// Create config directory if it doesn't exist
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return nil, err
 	}
 
@@ -54,6 +54,15 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
+	// Decrypt passwords
+	for i := range config.Accounts {
+		decrypted, err := DecryptPassword(config.Accounts[i].Password)
+		if err != nil {
+			return nil, err
+		}
+		config.Accounts[i].Password = decrypted
+	}
+
 	return &config, nil
 }
 
@@ -68,14 +77,30 @@ func SaveConfig(config *Config) error {
 	configPath := filepath.Join(configDir, "config.json")
 
 	// Create config directory if it doesn't exist
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return err
 	}
 
-	data, err := json.MarshalIndent(config, "", "  ")
+	// Create a copy of config with encrypted passwords
+	configCopy := &Config{
+		Accounts: make([]Account, len(config.Accounts)),
+	}
+
+	for i, account := range config.Accounts {
+		encrypted, err := EncryptPassword(account.Password)
+		if err != nil {
+			return err
+		}
+		configCopy.Accounts[i] = Account{
+			Email:    account.Email,
+			Password: encrypted,
+		}
+	}
+
+	data, err := json.MarshalIndent(configCopy, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, 0600)
 }
