@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os/exec"
 
 	"github.com/getlantern/systray"
 )
@@ -55,7 +56,7 @@ func (ui *TrayUI) onReady() {
 				ui.accountItems[account.Email] = item
 
 				// Create IMAP client for this account
-				client := NewIMAPClient(account, ui.onUnreadUpdate)
+				client := NewIMAPClient(account, ui.state, ui.onUnreadUpdate, ui.notifyNewMail)
 				ui.clients = append(ui.clients, client)
 
 				// Connect and start monitoring
@@ -112,13 +113,23 @@ func (ui *TrayUI) handleMenuClicks() {
 func (ui *TrayUI) refreshAll() {
 	for _, client := range ui.clients {
 		go func(c *IMAPClient) {
-			count, err := c.GetUnreadCount()
+			count, err := c.Refresh()
 			if err != nil {
-				log.Printf("Error getting unread count: %v", err)
+				log.Printf("Error refreshing account: %v", err)
 				return
 			}
 			ui.onUnreadUpdate(c.account.Email, count)
 		}(client)
+	}
+}
+
+// notifyNewMail shows a desktop notification for a newly-arrived email
+func (ui *TrayUI) notifyNewMail(email, from, subject string) {
+	title := fmt.Sprintf("New email - %s", email)
+	body := fmt.Sprintf("%s\n%s", from, subject)
+
+	if err := exec.Command("notify-send", "-a", "Gmail Notifier", "-i", "mail-unread", "--", title, body).Run(); err != nil {
+		log.Printf("Error showing notification for %s: %v", email, err)
 	}
 }
 

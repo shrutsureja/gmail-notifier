@@ -4,6 +4,7 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 ## Features
 
 - 📧 Real-time email notifications using IMAP IDLE
+- 🔔 Desktop popup notification (sender + subject) for every new email
 - 👥 Support for multiple Gmail accounts
 - 🔒 Secure authentication using Gmail App Passwords
 - 🔐 **Encrypted password storage** with build-time encryption keys
@@ -26,7 +27,7 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 
 1. Install dependencies:
    ```bash
-   sudo apt-get install -y libayatana-appindicator3-dev golang
+   sudo apt-get install -y libayatana-appindicator3-dev libnotify-bin golang
    ```
 
 2. Clone and build:
@@ -85,6 +86,42 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
    - Unread count per account
    - Refresh option
    - Quit option
+4. A desktop notification pops up for each new email as it arrives, showing
+   the sender and subject
+
+## Autostart on Login
+
+The app doesn't autostart on its own - enable it once via a systemd user
+service so it comes up automatically whenever you log in.
+
+**If installed from the `.deb` package**, the unit is already at
+`/usr/lib/systemd/user/gmail-notifier.service`:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now gmail-notifier.service
+```
+
+**If built from source**, install the binary somewhere on your `PATH` and
+point the unit at it:
+
+```bash
+mkdir -p ~/.local/bin
+cp gmail-notifier ~/.local/bin/
+mkdir -p ~/.config/systemd/user
+sed "s|/usr/bin/gmail-notifier|$HOME/.local/bin/gmail-notifier|" gmail-notifier.service > ~/.config/systemd/user/gmail-notifier.service
+systemctl --user daemon-reload
+systemctl --user enable --now gmail-notifier.service
+```
+
+Check status/logs with:
+
+```bash
+systemctl --user status gmail-notifier.service
+journalctl --user -u gmail-notifier.service -f
+```
+
+To disable autostart: `systemctl --user disable --now gmail-notifier.service`
 
 ## Building the .deb Package
 
@@ -106,19 +143,24 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 
 ```
 .
-├── main.go           # Application entry point
-├── config.go         # Configuration management
-├── state.go          # State management (unread counts)
-├── imap.go           # IMAP client with IDLE support
-├── ui.go             # System tray UI
-├── go.mod            # Go module definition
-├── go.sum            # Go dependencies
-└── debian/           # Debian package structure
+├── main.go                   # Application entry point
+├── config.go                 # Configuration management
+├── state.go                  # State management (unread counts, last seen UID)
+├── imap.go                   # IMAP client with IDLE support + new-mail detection
+├── ui.go                      # System tray UI + desktop notifications
+├── gmail-notifier.service     # systemd --user unit for autostart
+├── go.mod                     # Go module definition
+├── go.sum                     # Go dependencies
+└── debian/                    # Debian package structure
     ├── DEBIAN/
-    │   └── control   # Package metadata
+    │   └── control            # Package metadata
     └── usr/
         ├── bin/
         │   └── gmail-notifier
+        ├── lib/
+        │   └── systemd/
+        │       └── user/
+        │           └── gmail-notifier.service
         └── share/
             └── applications/
                 └── gmail-notifier.desktop
@@ -145,6 +187,11 @@ Gmail notification system tray app for Ubuntu across multiple Gmail accounts
 1. Verify IMAP is enabled in Gmail settings
 2. Check firewall allows connections to `imap.gmail.com:993`
 3. Try the "Refresh" option in the tray menu
+4. Make sure `libnotify-bin` is installed (`notify-send` must be on your `PATH`)
+   and that a notification daemon is running (built into GNOME/KDE by default;
+   minimal window managers may need something like `dunst`)
+5. On first run for an account, only *new* mail after that point triggers a
+   popup - existing unread mail is used to set the baseline, not notified about
 
 ### Connection errors
 

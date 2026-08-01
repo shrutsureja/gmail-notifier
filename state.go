@@ -11,6 +11,7 @@ import (
 type AccountState struct {
 	Email       string `json:"email"`
 	UnreadCount uint32 `json:"unread_count"`
+	LastUID     uint32 `json:"last_uid"`
 }
 
 // State represents the application state
@@ -72,6 +73,43 @@ func (s *State) UpdateUnreadCount(email string, count uint32) {
 	}
 
 	// Save state to disk
+	go s.Save()
+}
+
+// GetLastUID returns the highest message UID seen so far for an account
+func (s *State) GetLastUID(email string) uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, acc := range s.Accounts {
+		if acc.Email == email {
+			return acc.LastUID
+		}
+	}
+	return 0
+}
+
+// SetLastUID records the highest message UID seen so far for an account
+func (s *State) SetLastUID(email string, uid uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	found := false
+	for i, acc := range s.Accounts {
+		if acc.Email == email {
+			s.Accounts[i].LastUID = uid
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		s.Accounts = append(s.Accounts, AccountState{
+			Email:   email,
+			LastUID: uid,
+		})
+	}
+
 	go s.Save()
 }
 
