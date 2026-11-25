@@ -1,226 +1,111 @@
-# gmail-notifier-2
-Gmail notification system tray app for Ubuntu across multiple Gmail accounts
+# Gmail Notifier for Ubuntu
 
-## Features
+A tray icon in the Ubuntu top bar for all your Gmail accounts:
 
-- 📧 Real-time email notifications using IMAP IDLE
-- 🔔 Desktop popup notification (sender + subject) for every new email
-- 👥 Support for multiple Gmail accounts
-- 🔒 Secure authentication using Gmail App Passwords
-- 🔐 **Encrypted password storage** with build-time encryption keys
-- 🖥️ System tray integration for Ubuntu
-- 💾 Persistent state management
-- 🔄 Automatic reconnection on network issues
+- **Real-time popups** – a desktop notification within a second or two of an email arriving (IMAP IDLE push, no polling).
+- **"While you were away"** – when you turn the laptop on (or open the lid), everything that arrived while it was off shows up as **one** summary notification, and in the tray menu.
+- **Click to open** – clicking a notification opens *that exact email* in your browser, in the right Gmail account. There's also a **Mark as read** button.
+- **Tray menu** – unread count next to the icon. The menu shows the latest few emails across all accounts, plus one submenu per account with unread mail grouped by Gmail's four tabs: **Primary, Updates, Social, Promotions**.
+- Multiple accounts (as many as you like), passwords kept in the GNOME keyring, reconnects by itself after sleep or Wi-Fi drops.
 
-## Installation
+```
+ ✉ 7 ▾
+┌──────────────────────────────────────────────────────┐
+│ 7 unread across 3 accounts                           │
+│ ──────────────────────────────────────────────────── │
+│ LATEST                                               │
+│ Alice Smith — Lunch tomorrow?          (Personal)    │
+│ GitHub — [repo] PR #12 approved        (Work)        │
+│ ──────────────────────────────────────────────────── │
+│ Personal  (me@gmail.com)  —  4 unread             ▸  │──┐
+│ Work  (me@company.com)  —  2 unread               ▸  │  │ Open inbox in browser
+│ Side  (side@gmail.com)  —  1 unread               ▸  │  │ PRIMARY · 2
+│ ──────────────────────────────────────────────────── │  │  12m Alice Smith — Lunch tomorrow?
+│ Refresh now                                          │  │   2h Mom — Photos from Sunday
+│ ☐ Pause notifications                                │  │ UPDATES · 1
+│ Add another account…                                 │  │   3h Bank — Your statement is ready
+│ Open settings folder                                 │  │ PROMOTIONS · 1
+│ Quit                                                 │  │   5h Shop — 50% off everything
+└──────────────────────────────────────────────────────┘
+```
 
-### From .deb Package
-
-1. Download the latest `.deb` package from releases
-2. Install it:
-   ```bash
-   sudo dpkg -i gmail-notifier-2_1.0.0_amd64.deb
-   sudo apt-get install -f  # Install dependencies if needed
-   ```
-
-### From Source
-
-1. Install dependencies:
-   ```bash
-   sudo apt-get install -y libayatana-appindicator3-dev libnotify-bin golang
-   ```
-
-2. Clone and build:
-   ```bash
-   git clone https://github.com/shrutsureja/gmail-notifier-2.git
-   cd gmail-notifier-2
-   go build -o gmail-notifier
-   ```
-
-## Configuration
-
-1. **Enable IMAP in Gmail:**
-   - Go to Gmail Settings → Forwarding and POP/IMAP
-   - Enable IMAP access
-
-2. **Create App Password:**
-   - Go to Google Account → Security → 2-Step Verification
-   - At the bottom, select "App passwords"
-   - Generate a new app password for "Mail"
-   - Save this password (you'll need it for configuration)
-
-3. **Configure the Application:**
-   
-   Create a config file at `~/.config/gmail-notifier/config.json`:
-   
-   ```json
-   {
-     "accounts": [
-       {
-         "email": "your-email@gmail.com",
-         "password": "your-app-password-here"
-       },
-       {
-         "email": "another-email@gmail.com",
-         "password": "another-app-password"
-       }
-     ]
-   }
-   ```
-
-   **Important:** 
-   - Use App Passwords, NOT your regular Gmail password!
-   - Passwords will be automatically encrypted when you first run the application
-   - The config file is stored with restricted permissions (0600) for security
-
-## Usage
-
-1. Run the application:
-   ```bash
-   gmail-notifier
-   ```
-
-2. The app will appear in your system tray
-3. Click the tray icon to see:
-   - Total unread count
-   - Unread count per account
-   - Refresh option
-   - Quit option
-4. A desktop notification pops up for each new email as it arrives, showing
-   the sender and subject
-
-## Autostart on Login
-
-The app doesn't autostart on its own - enable it once via a systemd user
-service so it comes up automatically whenever you log in.
-
-**If installed from the `.deb` package**, the unit is already at
-`/usr/lib/systemd/user/gmail-notifier.service`:
+## Install (Ubuntu 22.04 / 24.04, GNOME)
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now gmail-notifier.service
+git clone -b claude/ubuntu-email-notifications-bak0b8 https://github.com/shrutsureja/gmail-notifier.git
+cd gmail-notifier
+./install.sh
 ```
 
-**If built from source**, install the binary somewhere on your `PATH` and
-point the unit at it:
+The installer:
+1. installs the desktop libraries with `apt` (asks for your password once),
+2. removes the old Go version if it's installed,
+3. copies the app to `~/.local/share/gmail-notifier` and adds `~/.local/bin/gmail-notifier`,
+4. sets it to start at every login (`~/.config/autostart`) and turns on Ubuntu's tray-icon extension,
+5. walks you through adding your accounts, then starts it.
 
-```bash
-mkdir -p ~/.local/bin
-cp gmail-notifier ~/.local/bin/
-mkdir -p ~/.config/systemd/user
-sed "s|/usr/bin/gmail-notifier|$HOME/.local/bin/gmail-notifier|" gmail-notifier.service > ~/.config/systemd/user/gmail-notifier.service
-systemctl --user daemon-reload
-systemctl --user enable --now gmail-notifier.service
+### Getting an app password (once per account)
+
+Gmail won't accept your normal password from apps. For each account:
+1. Turn on **2-Step Verification**: <https://myaccount.google.com/signinoptions/two-step-verification>
+2. Create an **app password**: <https://myaccount.google.com/apppasswords> (any name, e.g. "Ubuntu notifier")
+3. Make sure **IMAP is enabled**: Gmail → ⚙ → See all settings → Forwarding and POP/IMAP → Enable IMAP.
+
+Then run `gmail-notifier add-account`, which checks the login before saving anything. **Never paste app passwords into chats or files you share.**
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `gmail-notifier` | Runs the tray app (autostart does this for you) |
+| `gmail-notifier add-account` | Add or update an account; tests the login first |
+| `gmail-notifier remove-account you@gmail.com` | Remove an account |
+| `gmail-notifier check` | Tests every account from the terminal and prints the latest unread, with links. **Run this first if something seems wrong.** |
+| `gmail-notifier test-notification` | Shows a sample popup to check your desktop's notification setup |
+| `gmail-notifier -v` | Run with debug logging |
+
+## Settings
+
+`~/.config/gmail-notifier/config.ini` (the "Open settings folder" menu item opens it):
+
+```ini
+[settings]
+; which tabs pop up a notification (all four still show in the tray menu)
+notify = primary, updates, social, promotions
+max_items_per_account = 10
+
+[account me@gmail.com]
+label = Personal
+
+[account me@company.com]
+label = Work
 ```
 
-Check status/logs with:
+After editing, restart the app (Quit, then launch "Gmail Notifier" from the app grid) – `add-account`/`remove-account` reload it automatically.
 
-```bash
-systemctl --user status gmail-notifier.service
-journalctl --user -u gmail-notifier.service -f
-```
+## How it works
 
-To disable autostart: `systemctl --user disable --now gmail-notifier.service`
+One background thread per account keeps an IMAP connection to `imap.gmail.com` in **IDLE** mode, so Gmail pushes "new mail" to us instantly. The highest message number already seen is saved in `~/.local/state/gmail-notifier/state.json`, so at the next start the app asks for everything newer. That's how mail from while the laptop was off is found, and nothing is ever notified twice. The very first run only records a starting point, so it doesn't spam you about your existing backlog (that still shows in the tray).
 
-## Building the .deb Package
+It reconnects on its own: immediately when Ubuntu resumes from suspend or the network comes back, and otherwise with backoff (3s → 60s). Dead connections are caught by TCP keepalive. Gmail's tabs are detected with Gmail's own search (`category:social` etc.). Links use Gmail's message ID, `https://mail.google.com/mail/u/<you@gmail.com>/#all/<id>`, which opens the email in the right account even when several are signed in.
 
-```bash
-# Build the binary
-./build.sh
-
-# This will:
-# 1. Build the binary
-# 2. Create the .deb package
-```
-
-**Note:** The encryption key is generated automatically on first use (not at build time), so:
-- Each user has their own unique encryption key
-- Upgrading to a new version preserves encrypted passwords
-- No need to re-enter passwords when updating the app
-
-## Project Structure
-
-```
-.
-├── main.go                   # Application entry point
-├── config.go                 # Configuration management
-├── state.go                  # State management (unread counts, last seen UID)
-├── imap.go                   # IMAP client with IDLE support + new-mail detection
-├── ui.go                      # System tray UI + desktop notifications
-├── gmail-notifier.service     # systemd --user unit for autostart
-├── go.mod                     # Go module definition
-├── go.sum                     # Go dependencies
-└── debian/                    # Debian package structure
-    ├── DEBIAN/
-    │   └── control            # Package metadata
-    └── usr/
-        ├── bin/
-        │   └── gmail-notifier
-        ├── lib/
-        │   └── systemd/
-        │       └── user/
-        │           └── gmail-notifier.service
-        └── share/
-            └── applications/
-                └── gmail-notifier.desktop
-```
-
-## Dependencies
-
-- Go 1.16 or higher
-- [go-imap](https://github.com/emersion/go-imap) - IMAP client library
-- [go-imap-idle](https://github.com/emersion/go-imap-idle) - IMAP IDLE extension
-- [systray](https://github.com/getlantern/systray) - System tray library
-- libayatana-appindicator3 (Ubuntu system library)
+The mailbox is opened read-only, so the app never marks anything read unless you press **Mark as read**.
 
 ## Troubleshooting
 
-### Application not starting
+- **No icon in the top bar** – open the *Extensions* app and make sure **Ubuntu AppIndicators** is on, then log out and back in.
+- **"login failed"** in the menu – run `gmail-notifier check`; re-create the app password and run `gmail-notifier add-account` again.
+- **No popups** – run `gmail-notifier test-notification`; check *Settings → Notifications* (Do Not Disturb off, "Gmail Notifier" allowed). Also check the **Pause notifications** item in the menu.
+- **Logs** – `~/.local/state/gmail-notifier/gmail-notifier.log`
 
-1. Check logs at `~/.config/gmail-notifier/gmail-notifier.log`
-2. Verify config file exists and is valid JSON
-3. Ensure App Passwords are correct
+Uninstall with `./uninstall.sh` (add `--purge` to remove settings too).
 
-### No notifications appearing
+## Development
 
-1. Verify IMAP is enabled in Gmail settings
-2. Check firewall allows connections to `imap.gmail.com:993`
-3. Try the "Refresh" option in the tray menu
-4. Make sure `libnotify-bin` is installed (`notify-send` must be on your `PATH`)
-   and that a notification daemon is running (built into GNOME/KDE by default;
-   minimal window managers may need something like `dunst`)
-5. On first run for an account, only *new* mail after that point triggers a
-   popup - existing unread mail is used to set the baseline, not notified about
+```bash
+python3 -m unittest tests.test_engine   # IMAP engine vs. a fake Gmail-like IMAP server
+tests/run_ui_tests.sh                   # real tray app + notifications on a headless desktop
+                                        # (needs: xvfb dunst; sudo apt install xvfb dunst)
+```
 
-### Connection errors
-
-- Ensure you're using App Passwords, not regular passwords
-- Check internet connectivity
-- Gmail may temporarily block new logins - check your Gmail security page
-
-## Security
-
-This application implements several security measures to protect your Gmail App Passwords:
-
-1. **Encrypted Storage**: Passwords in the config file are encrypted using AES-GCM encryption
-2. **User-Specific Encryption Keys**: Each user has their own unique encryption key stored securely on their system
-3. **Persistent Keys Across Updates**: The encryption key persists across version upgrades, so you don't need to re-enter passwords when updating
-4. **Restricted Permissions**: Config files and encryption keys are created with 0600 permissions (readable/writable only by owner)
-5. **No Hardcoded Secrets**: Encryption keys are randomly generated on first use, not hardcoded in source
-
-**Important Security Notes:**
-- The encryption key is stored at `~/.config/gmail-notifier/.encryption_key` with 0600 permissions
-- The config file (`~/.config/gmail-notifier/config.json`) contains encrypted passwords
-- Both files are protected by file system permissions (owner-only access)
-- Keep your home directory secure and don't share these files
-- When you first add a password (in plaintext), it will be automatically encrypted on the first save
-- **The encryption key persists across version upgrades** - you won't need to re-enter passwords when updating the app
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+The tests use an in-process fake IMAP server (`tests/fake_imap.py`) that supports IDLE, Gmail's X-GM extensions and categories. No real account is needed.

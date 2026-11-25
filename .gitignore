@@ -1,4 +1,2 @@
-gmail-notifier
-debian/
-*.deb
-*.log
+__pycache__/
+*.pyc
