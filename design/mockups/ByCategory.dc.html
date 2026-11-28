@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tray menu grouped by Gmail tab</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&amp;family=Ubuntu+Mono&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#f6a27f}a:hover{color:#ffc3a8}
+</style>
+</helmet>
+<div style="width: 760px; height: 900px; box-sizing: border-box; background: #2c0a22; font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; color: #f2f2f2; padding: 40px; display: flex; flex-direction: column; gap: 16px">
+  <div style="font-size: 13px; color: #d9b8cc; line-height: 1.5; max-width: 560px">Tabs come first, accounts second. Good when you care more about "is anything important?" than "which inbox is it in?". Promotions and Social sit at the bottom, collapsed.</div>
+  <div style="width: 480px; background: #2b2b2b; border: 1px solid #424242; border-radius: 14px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 12px 32px rgba(0,0,0,0.45)">
+    <div style="padding: 8px 14px; font-size: 13px; color: #b5b5b5">7 unread across 3 accounts</div>
+    <sc-for list="{{cats}}" as="c" hint-placeholder-count="4">
+      <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px 4px; font-size: 11px; letter-spacing: 0.08em; color: #b5b5b5; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{c.color}}"></span><span style="flex: 1">{{c.title}}  ·  {{c.count}}</span><sc-if value="{{c.collapsed}}" hint-placeholder-val="{{ false }}"><span style="letter-spacing: 0; font-size: 12px">show</span></sc-if></div>
+      <sc-for list="{{c.items}}" as="m" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 14px; font-size: 14px">
+          <span style="font-family: 'Ubuntu Mono', ui-monospace, monospace; font-size: 13px; color: #b5b5b5; width: 30px; text-align: right; flex-shrink: 0">{{m.ago}}</span>
+          <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">{{m.sender}}</b> — {{m.subject}}</span>
+          <span style="font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #3d3d3d; color: #d6d6d6; flex-shrink: 0">{{m.account}}</span>
+        </div>
+      </sc-for>
+    </sc-for>
+    <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+    <div style="padding: 6px 14px 2px; font-size: 11px; letter-spacing: 0.08em; color: #b5b5b5; font-weight: 500">ACCOUNTS</div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px"><span style="flex: 1">Personal</span><span style="color: #b5b5b5">4 unread</span></div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px"><span style="flex: 1">Work</span><span style="color: #b5b5b5">2 unread</span></div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px"><span style="flex: 1">Side project</span><span style="color: #b5b5b5">1 unread</span></div>
+    <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px">Refresh now</div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px">Pause notifications</div>
+    <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px; font-size: 14px">Quit</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":760,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { cats: [
+      { title: 'PRIMARY', color: '#8ab4f8', count: 3, collapsed: false, items: [
+        { ago: '12m', sender: 'Alice Smith', subject: 'Lunch tomorrow?', account: 'Personal' },
+        { ago: '25m', sender: 'Priya Nair', subject: 'Q4 planning — agenda attached', account: 'Work' },
+        { ago: '2h', sender: 'Mom', subject: 'Photos from Sunday', account: 'Personal' } ] },
+      { title: 'UPDATES', color: '#fdd663', count: 2, collapsed: false, items: [
+        { ago: '1h', sender: 'GitHub', subject: '[gmail-notifier] PR #6 ready for review', account: 'Work' },
+        { ago: '3h', sender: 'Bank Alerts', subject: 'Your card statement is ready', account: 'Personal' } ] },
+      { title: 'SOCIAL', color: '#81c995', count: 1, collapsed: true, items: [] },
+      { title: 'PROMOTIONS', color: '#f28b82', count: 1, collapsed: true, items: [] }
+    ] };
+  }
+}
+</script>
+</body>
+</html>

@@ -180,7 +180,7 @@ class TrayApp:
             self.notify_message(msgs[0])
         elif msgs:
             n = len(msgs)
-            self.notify_summary(msgs, f"📬 {n} new email{'s' if n != 1 else ''} while you were away")
+            self.notify_summary(msgs, f"{n} new email{'s' if n != 1 else ''} while you were away")
         return GLib.SOURCE_REMOVE
 
     # -- notifications ------------------------------------------------------------
@@ -254,6 +254,25 @@ class TrayApp:
             self.rebuild_menu()
         w.mark_read([m.uid])
 
+    def confirm_remove_account(self, addr: str) -> None:
+        dlg = Gtk.MessageDialog(message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.NONE,
+                                text=f"Remove {addr} from Gmail Notifier?")
+        dlg.format_secondary_text("You'll stop getting notifications for this account. Its saved app "
+                                  "password is deleted from the keyring. Nothing changes in Gmail itself.")
+        dlg.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Remove", Gtk.ResponseType.OK)
+        dlg.get_widget_for_response(Gtk.ResponseType.OK).get_style_context().add_class("destructive-action")
+        dlg.set_keep_above(True)
+        answer = dlg.run()
+        dlg.destroy()
+        if answer == Gtk.ResponseType.OK:
+            self.remove_account(addr)
+
+    def remove_account(self, addr: str) -> None:
+        config_mod.remove_account(addr)
+        keyring_store.delete_password(addr)
+        self.cfg.accounts = [a for a in self.cfg.accounts if a.email != addr]
+        self._sync_workers()
+
     # -- tray menu --------------------------------------------------------------------
     def rebuild_menu(self) -> None:
         for child in self.menu.get_children():
@@ -320,6 +339,8 @@ class TrayApp:
             self._sep(sub)
             self._item(sub, f"…{s.unread_count - len(s.unread)} more unread in Gmail",
                        lambda: self.open_uri(s.inbox_link()))
+        self._sep(sub)
+        self._item(sub, "Remove this account…", lambda: self.confirm_remove_account(s.email))
         sub.show_all()
         return sub
 

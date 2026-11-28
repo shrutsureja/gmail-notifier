@@ -26,6 +26,7 @@ A tray icon in the Ubuntu top bar for all your Gmail accounts:
 │ Add another account…                                 │  │   3h Bank — Your statement is ready
 │ Open settings folder                                 │  │ PROMOTIONS · 1
 │ Quit                                                 │  │   5h Shop — 50% off everything
+│                                                      │  │ Remove this account…
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -58,11 +59,23 @@ Then run `gmail-notifier add-account`, which checks the login before saving anyt
 | Command | What it does |
 |---|---|
 | `gmail-notifier` | Runs the tray app (autostart does this for you) |
-| `gmail-notifier add-account` | Add or update an account; tests the login first |
-| `gmail-notifier remove-account you@gmail.com` | Remove an account |
-| `gmail-notifier check` | Tests every account from the terminal and prints the latest unread, with links. **Run this first if something seems wrong.** |
-| `gmail-notifier test-notification` | Shows a sample popup to check your desktop's notification setup |
-| `gmail-notifier -v` | Run with debug logging |
+| `gmail-notifier add-account` | Add or update an account; asks for the app password at a hidden prompt and tests the login first |
+| `gmail-notifier remove-account you@gmail.com` | Remove an account and delete its saved password (asks first; `--yes` skips that) |
+| `gmail-notifier doctor` | Checks everything (libraries, notifications, tray extension, accounts, network) and says how to fix what's wrong. **Start here if something seems off.** |
+| `gmail-notifier check` | Logs in to each account and shows the unread count |
+| `gmail-notifier unread` | Lists unread emails with their Gmail links (`--account`, `--limit`, `--category`) |
+| `gmail-notifier accounts` / `status` / `logs` | Configured accounts / is it running / the log |
+| `gmail-notifier test-notification` | Shows a sample popup |
+
+Add `--json` to `doctor`, `check`, `unread`, `accounts` and `status` for machine-readable output. That's what AI assistants should use (see [AGENTS.md](AGENTS.md)). No command takes a password as an argument or ever prints one.
+
+### Removing an account
+
+Either way works, and both also delete the saved app password from the keyring:
+- **From the tray:** open the account's submenu → **Remove this account…** → **Remove**.
+- **From a terminal:** `gmail-notifier remove-account you@gmail.com` (or use its label, e.g. `remove-account Work`).
+
+If you also want to revoke the app password at Google, delete it at <https://myaccount.google.com/apppasswords>.
 
 ## Settings
 
@@ -100,10 +113,14 @@ The mailbox is opened read-only, so the app never marks anything read unless you
 
 Uninstall with `./uninstall.sh` (add `--purge` to remove settings too).
 
+## Design
+
+The menu layout, notification rules, colors and icons are in [`design/DESIGN.md`](design/DESIGN.md) and [`design/tokens.json`](design/tokens.json). Mockups of the layout options are in [`design/mockups/`](design/mockups/).
+
 ## Development
 
 ```bash
-python3 -m unittest tests.test_engine   # IMAP engine vs. a fake Gmail-like IMAP server
+python3 -m unittest tests.test_engine tests.test_cli   # engine + CLI vs. a fake Gmail-like IMAP server
 tests/run_ui_tests.sh                   # real tray app + notifications on a headless desktop
                                         # (needs: xvfb dunst; sudo apt install xvfb dunst)
 ```

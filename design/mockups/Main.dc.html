@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tray menu, recommended layout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&amp;family=Ubuntu+Mono&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#f6a27f}a:hover{color:#ffc3a8}
+.mi{display:flex;align-items:center;gap:10px;min-height:32px;padding:0 14px;border-radius:8px;color:#f2f2f2;font-size:14px;background:none;border:0;width:100%;box-sizing:border-box;text-align:left;font-family:inherit;cursor:pointer}
+.mi:hover{background:#3b3b3b}
+.mi:focus-visible{outline:2px solid #e95420;outline-offset:-2px}
+</style>
+</helmet>
+<div style="width: 1120px; height: 960px; box-sizing: border-box; background: #2c0a22; font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; color: #f2f2f2; position: relative; overflow: hidden">
+  <div style="height: 34px; background: #000000; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; box-sizing: border-box; font-size: 14px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="display: flex; gap: 4px; padding: 6px 10px; border-radius: 99px; background: #262626">
+        <span style="width: 18px; height: 6px; border-radius: 3px; background: #ffffff"></span>
+        <span style="width: 6px; height: 6px; border-radius: 3px; background: #8a8a8a"></span>
+        <span style="width: 6px; height: 6px; border-radius: 3px; background: #8a8a8a"></span>
+      </div>
+    </div>
+    <div style="font-weight: 500">Thu 28 Nov  10:42</div>
+    <div style="display: flex; align-items: center; gap: 4px">
+      <div style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: #3a3a3a">
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2.5" y="5.5" width="17" height="12" rx="1.5" fill="none" stroke="#ffffff" stroke-width="1.6"></rect><path d="M3 6.5 L11 12.5 L19 6.5" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linejoin="round"></path><circle cx="17.5" cy="5.5" r="4" fill="#ea4335" stroke="#000000" stroke-width="1"></circle></svg>
+        <span style="font-weight: 700">{{total}}</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px; color: #d6d6d6">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 6.5a9.5 9.5 0 0 1 13 0M3.8 9a6 6 0 0 1 8.4 0M6.2 11.5a2.6 2.6 0 0 1 3.6 0" fill="none" stroke="#d6d6d6" stroke-width="1.5" stroke-linecap="round"></path></svg>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#d6d6d6"></path><path d="M11.5 5.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="#d6d6d6" stroke-width="1.5" stroke-linecap="round"></path></svg>
+        <svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><rect x="1" y="3" width="17" height="10" rx="2" fill="none" stroke="#d6d6d6" stroke-width="1.4"></rect><rect x="3" y="5" width="11" height="6" rx="1" fill="#d6d6d6"></rect><rect x="19" y="6" width="2" height="4" rx="1" fill="#d6d6d6"></rect></svg>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: absolute; top: 42px; right: 96px; width: 460px; background: #2b2b2b; border: 1px solid #424242; border-radius: 14px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 12px 32px rgba(0,0,0,0.45)">
+    <div style="padding: 8px 14px; font-size: 13px; color: #b5b5b5">{{total}} unread across 3 accounts</div>
+    <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+    <div style="padding: 6px 14px 2px; font-size: 11px; letter-spacing: 0.08em; color: #b5b5b5; font-weight: 500">LATEST</div>
+    <sc-for list="{{latest}}" as="m" hint-placeholder-count="5">
+      <button class="mi" type="button"><span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">{{m.sender}}</b> — {{m.subject}}</span><span style="font-size: 12px; color: #b5b5b5; flex-shrink: 0">{{m.account}}</span></button>
+    </sc-for>
+    <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+
+    <sc-for list="{{accounts}}" as="a" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 2px; border-radius: 10px; background: {{a.bg}}">
+        <button class="mi" type="button" onClick="{{a.toggle}}" aria-expanded="{{a.expanded}}">
+          <span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">{{a.label}}</b>  <span style="color: #b5b5b5">({{a.email}})</span></span>
+          <span style="font-size: 13px; color: {{a.stateColor}}; flex-shrink: 0">{{a.state}}</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style="transform: rotate({{a.rot}}deg); flex-shrink: 0"><path d="M4 2.5 L8 6 L4 9.5" fill="none" stroke="#d6d6d6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+        <sc-if value="{{a.expanded}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 0 6px 16px">
+            <button class="mi" type="button" style="color: #f6a27f">Open inbox in browser</button>
+            <sc-for list="{{a.cats}}" as="c" hint-placeholder-count="2">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px 2px; font-size: 11px; letter-spacing: 0.08em; color: #b5b5b5; font-weight: 500"><span style="width: 8px; height: 8px; border-radius: 2px; background: {{c.color}}"></span>{{c.title}}  ·  {{c.count}}</div>
+              <sc-for list="{{c.items}}" as="m" hint-placeholder-count="2">
+                <button class="mi" type="button"><span style="font-family: 'Ubuntu Mono', ui-monospace, monospace; font-size: 13px; color: #b5b5b5; width: 30px; text-align: right; flex-shrink: 0">{{m.ago}}</span><span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">{{m.sender}}</b> — {{m.subject}}</span></button>
+              </sc-for>
+            </sc-for>
+            <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+            <button class="mi" type="button" style="color: #b5b5b5">Remove this account…</button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+    <button class="mi" type="button">Refresh now</button>
+    <button class="mi" type="button" onClick="{{togglePause}}" aria-pressed="{{paused}}">
+      <span style="flex: 1">Pause notifications</span>
+      <span style="width: 36px; height: 20px; border-radius: 10px; background: {{pauseTrack}}; position: relative; flex-shrink: 0"><span style="position: absolute; top: 2px; left: {{pauseKnob}}px; width: 16px; height: 16px; border-radius: 8px; background: #ffffff"></span></span>
+    </button>
+    <button class="mi" type="button">Add another account…</button>
+    <button class="mi" type="button">Open settings folder</button>
+    <button class="mi" type="button">Quit</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1120,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 'personal', paused: false };
+  }
+  renderVals() {
+    const C = { primary: '#8ab4f8', updates: '#fdd663', social: '#81c995', promotions: '#f28b82' };
+    const data = [
+      { id: 'personal', label: 'Personal', email: 'me@gmail.com', count: 4, status: 'ok', cats: [
+        { key: 'primary', title: 'PRIMARY', items: [
+          { ago: '12m', sender: 'Alice Smith', subject: 'Lunch tomorrow?' },
+          { ago: '2h', sender: 'Mom', subject: 'Photos from Sunday' } ] },
+        { key: 'updates', title: 'UPDATES', items: [
+          { ago: '3h', sender: 'Bank Alerts', subject: 'Your card statement is ready' } ] },
+        { key: 'promotions', title: 'PROMOTIONS', items: [
+          { ago: '5h', sender: 'Shoe Store', subject: '50% off everything this weekend' } ] } ] },
+      { id: 'work', label: 'Work', email: 'me@company.com', count: 2, status: 'ok', cats: [
+        { key: 'primary', title: 'PRIMARY', items: [
+          { ago: '25m', sender: 'Priya Nair', subject: 'Q4 planning — agenda attached' } ] },
+        { key: 'updates', title: 'UPDATES', items: [
+          { ago: '1h', sender: 'GitHub', subject: '[gmail-notifier] PR #6 ready for review' } ] } ] },
+      { id: 'side', label: 'Side project', email: 'side@gmail.com', count: 1, status: 'ok', cats: [
+        { key: 'social', title: 'SOCIAL', items: [
+          { ago: '4h', sender: 'Meetup', subject: '3 new members joined your group' } ] } ] }
+    ];
+    const accounts = data.map((a) => {
+      const expanded = this.state.open === a.id;
+      return {
+        label: a.label, email: a.email, state: a.count + ' unread', stateColor: '#d6d6d6',
+        expanded, rot: expanded ? 90 : 0, bg: expanded ? '#333333' : 'transparent',
+        cats: a.cats.map((c) => ({ title: c.title, count: c.items.length, color: C[c.key], items: c.items })),
+        toggle: () => this.setState({ open: expanded ? null : a.id })
+      };
+    });
+    const latest = [
+      { sender: 'Alice Smith', subject: 'Lunch tomorrow?', account: 'Personal' },
+      { sender: 'Priya Nair', subject: 'Q4 planning — agenda attached', account: 'Work' },
+      { sender: 'GitHub', subject: '[gmail-notifier] PR #6 ready for review', account: 'Work' },
+      { sender: 'Mom', subject: 'Photos from Sunday', account: 'Personal' },
+      { sender: 'Bank Alerts', subject: 'Your card statement is ready', account: 'Personal' }
+    ];
+    const paused = this.state.paused;
+    return {
+      total: 7, latest, accounts, paused,
+      pauseTrack: paused ? '#e95420' : '#555555', pauseKnob: paused ? 18 : 2,
+      togglePause: () => this.setState({ paused: !paused })
+    };
+  }
+}
+</script>
+</body>
+</html>

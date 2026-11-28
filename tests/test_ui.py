@@ -116,9 +116,18 @@ class TrayUITest(unittest.TestCase):
         self.assertTrue(pump_until(lambda: self.app.sent, timeout=12))
         self.assertEqual(len(self.app.sent), 1, self.app.sent)
         summary, body = self.app.sent[0]
-        self.assertEqual(summary, "📬 6 new emails while you were away")
+        self.assertEqual(summary, "6 new emails while you were away")
         self.assertIn("Personal: 4", body)
         self.assertIn("Work: 2", body)
+
+    def test_remove_account_from_tray(self):
+        os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
+        self.wait_ready()
+        self.app.remove_account("work@gmail.com")
+        self.assertEqual(list(self.app.workers), ["me@gmail.com"])
+        labels = menu_labels(self.app.menu)
+        self.assertFalse(any("work@gmail.com" in l for l in labels))
+        self.assertTrue(any(l.strip() == "Remove this account…" for l in labels))
 
     def test_pause_suppresses_notifications(self):
         self.wait_ready()
