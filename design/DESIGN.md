@@ -2,7 +2,7 @@
 
 How the tray icon, menu and notifications look and behave. Colors, type and sizes are in [`tokens.json`](tokens.json). The mockups are in [`mockups/`](mockups/); they are Claude Design canvas files, and the live canvas is the "Gmail Notifier Tray UI" artifact.
 
-What GNOME draws itself and what we control: the top bar, menu chrome and notification cards are drawn by GNOME Shell in the user's theme, so in the real app the colors below come from Yaru dark, not from us. A tray menu can't show colored text, chips or toggles (the AppIndicator protocol only carries plain labels). The tokens describe the mockups and keep our own pieces (icons, notification text) consistent with the Ubuntu look. Anything marked **(mockup only)** can't be reproduced exactly in the real menu.
+A GNOME tray menu can only show plain text, so the interface in the mockup is a **panel window we draw ourselves** (`gmail_notifier/panel.py`, styled from `tokens.json`). The icon's native menu stays small: *Open Gmail Notifier*, *Refresh now*, *Pause notifications*, *Quit*. Middle-clicking the icon also opens the panel. Notifications are drawn by GNOME itself. On Wayland an app can't choose where its window appears, so the panel may not sit directly under the icon. `design/panel-screenshot.png` is the real panel.
 
 ## Tray icon
 
@@ -18,7 +18,7 @@ The icons are 22×22 SVGs drawn in light grey/white so they read on the black to
 
 The **top-bar number** is unread mail from the last `recent_days` days (default 7) in the tabs listed in `notify`, summed across accounts. It's capped at `999+`. Old unread mail is never counted there; it shows only as each account's total. Counts per tab come from Gmail's own search, so they stay accurate with tens of thousands of unread emails, and only the few emails actually listed are downloaded.
 
-## Menu (chosen layout: accounts with Gmail tabs)
+## Panel (chosen layout: accounts with Gmail tabs)
 
 Top to bottom:
 
@@ -36,14 +36,14 @@ Top to bottom:
 
 Text rules: labels are truncated to about 64–70 characters with `…`. Underscores are escaped (menus treat `_` as a shortcut marker). Times are relative (`12m`, `2h`, `3d`).
 
-Category colors (blue, amber, green, salmon) appear only in the mockups. **(mockup only)**
+Category colors (blue, amber, green, salmon) mark each tab header with a small square.
 
 ### Alternatives considered
 
 - **Option B: grouped by tab.** Tabs first, account as a tag on each email. Better if you care about "is anything important?" more than which inbox it's in.
 - **Option C: compact.** The 3 newest emails, then one line per account with a count per tab. Better if popups are your main signal.
 
-Switching layouts only touches `TrayApp.rebuild_menu()` in `gmail_notifier/app.py`.
+Switching layouts only touches `Panel.refresh()` in `gmail_notifier/panel.py`.
 
 ## Notifications
 

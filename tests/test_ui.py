@@ -10,7 +10,10 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from gi.repository import GLib  # noqa: E402
+import gi  # noqa: E402
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk  # noqa: E402
 
 from gmail_notifier.app import TrayApp  # noqa: E402
 from gmail_notifier.config import Account, Config, Settings  # noqa: E402
@@ -30,15 +33,22 @@ def pump_until(pred, timeout=8.0):
     return False
 
 
-def menu_labels(menu, depth=0):
+def menu_labels(menu_or_panel, depth=0):
+    """Every piece of text in the native menu or in the panel window."""
     out = []
-    for it in menu.get_children():
-        label = it.get_label() if hasattr(it, "get_label") else None
-        if label:
-            out.append("  " * depth + label.replace("__", "_"))
-        sub = it.get_submenu() if hasattr(it, "get_submenu") else None
-        if sub:
-            out += menu_labels(sub, depth + 1)
+    def walk(w):
+        if isinstance(w, Gtk.Label):
+            t = w.get_text()
+            if t:
+                out.append(t.replace("__", "_"))
+        if hasattr(w, "get_children"):
+            for c in w.get_children():
+                walk(c)
+    if hasattr(menu_or_panel, "body"):  # the panel
+        walk(menu_or_panel.body)
+        walk(menu_or_panel.footer)
+    else:
+        walk(menu_or_panel)
     return out
 
 
@@ -66,27 +76,51 @@ class TrayUITest(unittest.TestCase):
         for s in self.servers:
             s.close()
 
+    def panel_labels(self, expand=("me@gmail.com", "work@gmail.com")):
+        """All text in the panel window, with the given accounts expanded."""
+        self.app.toggle_panel() if getattr(self.app, "panel", None) is None else None
+        self.app.panel.show_all()
+        self.app.panel.expanded = set(expand)
+        self.app.panel._auto_expanded = True
+        self.app.panel.refresh()
+        pump_until(lambda: False, 0.2)
+        return menu_labels(self.app.panel)
+
     def wait_ready(self):
         self.assertTrue(pump_until(lambda: all(s.status == "ok" for s in self.app.snapshots.values())),
                         f"accounts never connected: {[(s.email, s.status, s.error) for s in self.app.snapshots.values()]}")
 
-    def test_menu_groups_by_account_and_category(self):
+    def test_panel_groups_by_account_and_category(self):
         p, w = (s.mailbox for s in self.servers)
         p.deliver("Alice <a@x.com>", "Lunch tomorrow?")
         p.deliver("Shop <deals@x.com>", "50% off everything", category="promotions")
         w.deliver("Boss <boss@x.com>", "Q4 planning", category="updates")
         self.wait_ready()
-        labels = menu_labels(self.app.menu)
+        labels = self.panel_labels()
         print("\n".join(labels))
         self.assertEqual(labels[0], "3 unread this week across 2 accounts")
         self.assertIn("LATEST", labels)
-        self.assertTrue(any(l.startswith("Personal  (me@gmail.com)  —  2 unread") for l in labels))
-        self.assertTrue(any(l.startswith("Work  (work@gmail.com)  —  1 unread") for l in labels))
-        self.assertTrue(any("PRIMARY  ·  1" in l for l in labels))
-        self.assertTrue(any("PROMOTIONS  ·  1" in l for l in labels))
-        self.assertTrue(any("UPDATES  ·  1" in l for l in labels))
+        self.assertIn("Personal  (me@gmail.com)", labels)
+        self.assertIn("2 unread", labels)
+        self.assertIn("Work  (work@gmail.com)", labels)
+        self.assertIn("PRIMARY  ·  1", labels)
+        self.assertIn("PROMOTIONS  ·  1", labels)
+        self.assertIn("UPDATES  ·  1", labels)
+        for text in ("Refresh now", "Pause notifications", "Quit"):
+            self.assertIn(text, labels)
         self.assertEqual(self.app.indicator.get_label(), "3")
         self.assertEqual(self.app.indicator.get_icon(), "gmail-notifier-unread")
+
+    def test_tray_menu_is_small_and_opens_the_panel(self):
+        self.wait_ready()
+        items = [it.get_label() for it in self.app.menu.get_children() if hasattr(it, "get_label") and it.get_label()]
+        self.assertEqual([i.replace("__", "_").replace("<b>", "").replace("</b>", "") for i in items],
+                         ["0 unread this week", "Open Gmail Notifier", "Refresh now", "Pause notifications", "Quit"])
+        self.assertIsNone(getattr(self.app, "panel", None))
+        self.app.toggle_panel()
+        self.assertTrue(self.app.panel.get_visible())
+        self.app.toggle_panel()
+        self.assertFalse(self.app.panel.get_visible())
 
     def test_new_mail_pops_notification_and_click_opens_that_email(self):
         self.wait_ready()
@@ -136,7 +170,7 @@ class TrayUITest(unittest.TestCase):
         # the extra mail updates ONE popup instead of adding new ones
         self.assertEqual(len(self.app.notifications), 4, "expected 3 popups + 1 updating summary")
 
-    def test_big_backlog_menu(self):
+    def test_big_backlog_panel(self):
         mb = self.servers[0].mailbox
         for i in range(30):
             mb.deliver(f"Shop{i} <s{i}@x.com>", f"old deal {i}", category="promotions", age_days=40)
@@ -144,29 +178,26 @@ class TrayUITest(unittest.TestCase):
             mb.deliver(f"Store{i} <n{i}@x.com>", f"deal {i}", category="promotions")
         mb.deliver("Alice <a@x.com>", "Lunch?")
         self.wait_ready()
-        labels = menu_labels(self.app.menu)
-        print("\n".join(labels))
+        labels = self.panel_labels(expand=("me@gmail.com",))
         self.assertEqual(labels[0], "10 unread this week across 2 accounts")  # all tabs notify by default
         self.app.cfg.settings.notify = ["primary", "updates"]
-        self.app.rebuild_menu()
-        labels = menu_labels(self.app.menu)
+        labels = self.panel_labels(expand=("me@gmail.com",))
         self.assertEqual(labels[0], "1 unread this week across 2 accounts")  # promotions now don't count
-        self.assertTrue(any("Personal  (me@gmail.com)  —  10 this week · 40 unread" in l for l in labels))
-        self.assertTrue(any("PROMOTIONS  ·  9" in l for l in labels))
-        self.assertTrue(any(l.strip() == "…5 more in Promotions" for l in labels))
-        self.assertTrue(any(l.strip() == "All 40 unread in Gmail…" for l in labels))
+        self.assertIn("10 this week · 40 unread", labels)
+        self.assertIn("PROMOTIONS  ·  9", labels)
+        self.assertIn("…5 more in Promotions", labels)
+        self.assertIn("All 40 unread in Gmail…", labels)
         latest = labels[labels.index("LATEST") + 1:]
-        self.assertTrue(latest[0].startswith("Alice — Lunch?"))
-        self.assertFalse(any("deal" in l for l in latest[:1]))
+        self.assertEqual(latest[0], "Alice — Lunch?")
 
     def test_remove_account_from_tray(self):
         os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
         self.wait_ready()
         self.app.remove_account("work@gmail.com")
         self.assertEqual(list(self.app.workers), ["me@gmail.com"])
-        labels = menu_labels(self.app.menu)
+        labels = self.panel_labels(expand=("me@gmail.com",))
         self.assertFalse(any("work@gmail.com" in l for l in labels))
-        self.assertTrue(any(l.strip() == "Remove this account…" for l in labels))
+        self.assertIn("Remove this account…", labels)
 
     def test_pause_suppresses_notifications(self):
         self.wait_ready()

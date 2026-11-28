@@ -323,87 +323,36 @@ class TrayApp:
         return sum(n for c, n in s.category_counts.items() if c in self.cfg.settings.notify)
 
     def rebuild_menu(self) -> None:
+        """The small native menu (a tray menu can only hold plain text). The full
+        interface is the panel window, which refreshes alongside it."""
         for child in self.menu.get_children():
             self.menu.remove(child)
         snaps = [self.snapshots[a.email] for a in self.cfg.accounts if a.email in self.snapshots]
         badge = sum(self.badge_count(s) for s in snaps)
-        multi = len(snaps) > 1
         period = _period(self.cfg.settings.recent_days)
-
         if snaps:
-            header = f"{badge:,} unread{(' ' + period) if period else ''}"
-            header += f" across {len(snaps)} accounts" if multi else ""
-        else:
-            header = "No accounts set up yet"
-        self._header(self.menu, header)
-        if not snaps:
-            self._item(self.menu, "Add a Gmail account…", self._launch_add_account)
-
-        notify = self.cfg.settings.notify
-        latest = sorted((m for s in snaps for m in s.unread if m.category in notify),
-                        key=lambda m: m.date, reverse=True)[:LATEST_COUNT]
-        if latest:
-            self._sep(self.menu)
-            self._header(self.menu, "LATEST")
-            for m in latest:
-                suffix = f"   ({self.label_for(m.account)})" if multi else ""
-                self._item(self.menu, _ellipsize(f"{m.sender} — {m.subject}", 64) + suffix,
-                           lambda m=m: self.open_message(m))
-
-        if snaps:
-            self._sep(self.menu)
-        for s in snaps:
-            item = Gtk.MenuItem.new_with_mnemonic(_mnemonic_safe(_account_line(s)))
-            item.set_submenu(self._account_submenu(s))
-            self.menu.append(item)
-
+            self._header(self.menu, f"{badge:,} unread{(' ' + period) if period else ''}")
+        open_item = self._item(self.menu, "Open Gmail Notifier", self.toggle_panel)
+        open_item.get_child().set_markup("<b>Open Gmail Notifier</b>")
         self._sep(self.menu)
         self._item(self.menu, "Refresh now", self.refresh_all)
         pause = Gtk.CheckMenuItem.new_with_label("Pause notifications")
         pause.set_active(self.paused)
         pause.connect("toggled", lambda it: setattr(self, "paused", it.get_active()))
         self.menu.append(pause)
-        if snaps:
-            self._item(self.menu, "Add another account…", self._launch_add_account)
-        self._item(self.menu, "Open settings folder", lambda: self.open_uri("file://" + config_mod.config_dir()))
         self._item(self.menu, "Quit", self.quit)
         self.menu.show_all()
+        self.indicator.set_secondary_activate_target(open_item)  # middle-click the icon
         self._update_icon(snaps, badge)
+        panel = getattr(self, "panel", None)
+        if panel is not None and panel.get_visible():
+            panel.refresh()
 
-    def _account_submenu(self, s: AccountSnapshot) -> Gtk.Menu:
-        sub = Gtk.Menu()
-        self._item(sub, "Open inbox in browser", lambda: self.open_uri(s.inbox_link()))
-        if s.status in ("auth_error", "error", "offline") and s.error:
-            self._header(sub, "⚠ " + s.error)
-            self._item(sub, "Retry now", lambda: self.workers[s.email].kick())
-        listed: dict[str, list[Message]] = {c: [] for c in CATEGORIES}
-        for m in s.unread:
-            listed.setdefault(m.category, []).append(m)
-        period = _period(s.recent_days)
-        for cat in listed:
-            msgs = listed[cat]
-            count = s.category_counts.get(cat, len(msgs)) if s.category_counts else len(msgs)
-            if not count:
-                continue
-            title = CATEGORY_TITLES.get(cat, cat)
-            self._sep(sub)
-            self._header(sub, f"{title.upper()}  ·  {count:,}")
-            for m in msgs:
-                self._item(sub, f"{_ago(m.date):>4}  " + _ellipsize(f"{m.sender} — {m.subject}", 70),
-                           lambda m=m: self.open_message(m))
-            if count > len(msgs):
-                self._item(sub, f"…{count - len(msgs):,} more in {title}",
-                           lambda cat=cat: self.open_uri(s.category_link(cat)))
-        if s.status == "ok" and not s.recent_count:
-            self._sep(sub)
-            self._header(sub, f"Nothing new {period}" if s.unread_count else "Inbox zero 🎉")
-        if s.recent_days and s.unread_count > s.recent_count:
-            self._sep(sub)
-            self._item(sub, f"All {s.unread_count:,} unread in Gmail…", lambda: self.open_uri(s.all_unread_link()))
-        self._sep(sub)
-        self._item(sub, "Remove this account…", lambda: self.confirm_remove_account(s.email))
-        sub.show_all()
-        return sub
+    def toggle_panel(self) -> None:
+        if getattr(self, "panel", None) is None:
+            from .panel import Panel
+            self.panel = Panel(self)
+        self.panel.toggle()
 
     def _update_icon(self, snaps: list[AccountSnapshot], total: int) -> None:
         if any(s.status == "auth_error" for s in snaps):

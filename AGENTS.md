@@ -1,6 +1,6 @@
 # Notes for AI assistants
 
-This repo is a Gmail tray notifier for Ubuntu (Python 3 + GTK/AppIndicator/libnotify). The design spec is `design/DESIGN.md`.
+This repo is a Gmail tray notifier for Ubuntu (Python 3 + GTK/AppIndicator/libnotify). The design spec is `design/DESIGN.md`; the UI is the panel window in `gmail_notifier/panel.py`, and `design/panel-screenshot.png` shows the real thing.
 
 ## Secrets: hard rules
 - **Never ask for, accept, store, print or pass a Gmail app password.** Only a person adds one, with `gmail-notifier add-account` in their own terminal. That command refuses to run without a real terminal, and there's no flag that takes a password.

@@ -5,30 +5,12 @@ A tray icon in the Ubuntu top bar for all your Gmail accounts:
 - **Real-time popups** – a desktop notification within a second or two of an email arriving (IMAP IDLE push, no polling).
 - **"While you were away"** – when you turn the laptop on (or open the lid), everything that arrived while it was off shows up as **one** summary notification, and in the tray menu.
 - **Click to open** – clicking a notification opens *that exact email* in your browser, in the right Gmail account. There's also a **Mark as read** button.
-- **Tray menu** – unread count next to the icon. The menu shows the latest few emails across all accounts, plus one submenu per account with unread mail grouped by Gmail's four tabs: **Primary, Updates, Social, Promotions**.
+- **Panel** – the unread count sits next to the tray icon. The panel shows the latest few emails across all accounts, then each account (click to expand) with unread mail grouped by Gmail's four tabs: **Primary, Updates, Social, Promotions**.
 - Multiple accounts (as many as you like), passwords kept in the GNOME keyring, reconnects by itself after sleep or Wi-Fi drops.
 
-```
- ✉ 7 ▾
-┌──────────────────────────────────────────────────────┐
-│ 7 unread across 3 accounts                           │
-│ ──────────────────────────────────────────────────── │
-│ LATEST                                               │
-│ Alice Smith — Lunch tomorrow?          (Personal)    │
-│ GitHub — [repo] PR #12 approved        (Work)        │
-│ ──────────────────────────────────────────────────── │
-│ Personal  (me@gmail.com)  —  4 unread             ▸  │──┐
-│ Work  (me@company.com)  —  2 unread               ▸  │  │ Open inbox in browser
-│ Side  (side@gmail.com)  —  1 unread               ▸  │  │ PRIMARY · 2
-│ ──────────────────────────────────────────────────── │  │  12m Alice Smith — Lunch tomorrow?
-│ Refresh now                                          │  │   2h Mom — Photos from Sunday
-│ ☐ Pause notifications                                │  │ UPDATES · 1
-│ Add another account…                                 │  │   3h Bank — Your statement is ready
-│ Open settings folder                                 │  │ PROMOTIONS · 1
-│ Quit                                                 │  │   5h Shop — 50% off everything
-│                                                      │  │ Remove this account…
-└──────────────────────────────────────────────────────┘
-```
+![The panel](design/panel-screenshot.png)
+
+Click the envelope in the top bar and choose **Open Gmail Notifier** (or middle-click the icon). Click an account to expand it, click any email to open it. Esc or clicking elsewhere closes the panel.
 
 ## Install (Ubuntu 22.04 / 24.04, GNOME)
 
@@ -72,7 +54,7 @@ Add `--json` to `doctor`, `check`, `unread`, `accounts` and `status` for machine
 ### Removing an account
 
 Either way works, and both also delete the saved app password from the keyring:
-- **From the tray:** open the account's submenu → **Remove this account…** → **Remove**.
+- **From the panel:** expand the account → **Remove this account…** → **Remove**.
 - **From a terminal:** `gmail-notifier remove-account you@gmail.com` (or use its label, e.g. `remove-account Work`).
 
 If you also want to revoke the app password at Google, delete it at <https://myaccount.google.com/apppasswords>.
