@@ -101,7 +101,7 @@ class TrayUITest(unittest.TestCase):
         # ...and clicking it (dunst "default action") opens that exact email:
         subprocess.run(["dunstctl", "action", "0"], check=False)
         self.assertTrue(pump_until(lambda: self.opened), "clicking the notification didn't open anything")
-        self.assertRegex(self.opened[-1], r"^https://mail\.google\.com/mail/u/me%40gmail\.com/#all/[0-9a-f]+$")
+        self.assertRegex(self.opened[-1], r"^https://mail\.google\.com/mail/\?authuser=me@gmail\.com#all/[0-9a-f]+$")
 
     def test_catchup_after_being_off_is_one_summary_notification(self):
         self.wait_ready()

@@ -90,7 +90,7 @@ class EngineTest(unittest.TestCase):
         m = new[0]
         self.assertEqual((m.sender, m.sender_email, m.subject), ("Alice Smith", "alice@x.com", "Lunch tomorrow?"))
         self.assertIn("Are you free at 1pm?", m.snippet)
-        self.assertEqual(m.link(), f"https://mail.google.com/mail/u/me%40example.com/#all/{m.gm_msgid:x}")
+        self.assertEqual(m.link(), f"https://mail.google.com/mail/?authuser=me@example.com#all/{m.gm_msgid:x}")
 
     def test_catchup_after_downtime(self):
         w, rec = self.start()

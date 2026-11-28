@@ -75,7 +75,7 @@ class CliTest(unittest.TestCase):
         msgs = json.loads(p.stdout)["messages"]
         self.assertEqual({m["subject"]: m["category"] for m in msgs},
                          {"Lunch tomorrow?": "primary", "50% off": "promotions"})
-        self.assertTrue(all(m["link"].startswith("https://mail.google.com/mail/u/me%40gmail.com/#all/") for m in msgs))
+        self.assertTrue(all(m["link"].startswith("https://mail.google.com/mail/?authuser=me@gmail.com#all/") for m in msgs))
         self.assertTrue(all("\\Seen" not in m.flags for m in self.srv.mailbox.msgs if m.uid < 3))
         p = self.run_cli("unread", "--json", "--category", "promotions")
         self.assertEqual([m["subject"] for m in json.loads(p.stdout)["messages"]], ["50% off"])

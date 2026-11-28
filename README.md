@@ -108,7 +108,7 @@ After editing, restart the app (Quit, then launch "Gmail Notifier" from the app 
 
 One background thread per account keeps an IMAP connection to `imap.gmail.com` in **IDLE** mode, so Gmail pushes "new mail" to us instantly. The highest message number already seen is saved in `~/.local/state/gmail-notifier/state.json`, so at the next start the app asks for everything newer. That's how mail from while the laptop was off is found, and nothing is ever notified twice. The very first run only records a starting point, so it doesn't spam you about your existing backlog (that still shows in the tray).
 
-It reconnects on its own: immediately when Ubuntu resumes from suspend or the network comes back, and otherwise with backoff (3s → 60s). Dead connections are caught by TCP keepalive. Gmail's tabs are detected with Gmail's own search (`category:social` etc.). Links use Gmail's message ID, `https://mail.google.com/mail/u/<you@gmail.com>/#all/<id>`, which opens the email in the right account even when several are signed in.
+It reconnects on its own: immediately when Ubuntu resumes from suspend or the network comes back, and otherwise with backoff (3s → 60s). Dead connections are caught by TCP keepalive. Gmail's tabs are detected with Gmail's own search (`category:social` etc.). Links use Gmail's message ID, `https://mail.google.com/mail/?authuser=<you@gmail.com>#all/<id>`, which opens the email in the right account even when several are signed in.
 
 The mailbox is opened read-only, so the app never marks anything read unless you press **Mark as read**.
 

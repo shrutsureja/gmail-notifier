@@ -41,8 +41,10 @@ class Message:
 
 
 def gmail_base(account: str) -> str:
-    # /mail/u/<address>/ routes to the right account when several are signed in.
-    return f"https://mail.google.com/mail/u/{urllib.parse.quote(account)}/"
+    # ?authuser=<address> makes Gmail pick that signed-in account. (The
+    # /mail/u/<address>/ form 404s when the "@" is percent-encoded.)
+    # "+" must stay encoded (it would mean a space in a query); "@" must not.
+    return f"https://mail.google.com/mail/?authuser={urllib.parse.quote(account, safe='@')}"
 
 
 @dataclass
