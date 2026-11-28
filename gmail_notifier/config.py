@@ -48,7 +48,9 @@ class Account:
 @dataclass
 class Settings:
     notify: list[str] = field(default_factory=lambda: list(CATEGORIES))
-    max_items_per_account: int = 10
+    max_items_per_account: int = 10  # servers without Gmail tabs
+    max_items_per_category: int = 4  # newest unread shown per tab in the menu
+    recent_days: int = 7  # badge + menu count unread from this many days; 0 = all unread
     idle_timeout_minutes: float = 10.0
 
 
@@ -67,6 +69,8 @@ def load(path: str | None = None) -> Config:
         if "notify" in s:
             settings.notify = [c.strip().lower() for c in s["notify"].split(",") if c.strip()]
         settings.max_items_per_account = s.getint("max_items_per_account", settings.max_items_per_account)
+        settings.max_items_per_category = s.getint("max_items_per_category", settings.max_items_per_category)
+        settings.recent_days = s.getint("recent_days", settings.recent_days)
         settings.idle_timeout_minutes = s.getfloat("idle_timeout_minutes", settings.idle_timeout_minutes)
     accounts = []
     for name in cp.sections():

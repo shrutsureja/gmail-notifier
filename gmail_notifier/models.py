@@ -53,8 +53,19 @@ class AccountSnapshot:
     label: str
     status: str = "connecting"  # connecting | ok | offline | auth_error | error
     error: str = ""
-    unread_count: int = 0
-    unread: list[Message] = field(default_factory=list)  # newest first, capped
+    unread_count: int = 0  # every unread email in the inbox, however old
+    recent_count: int = 0  # unread that arrived in the last `recent_days` days
+    recent_days: int = 0  # 0 = no window: recent_count == unread_count
+    category_counts: dict[str, int] = field(default_factory=dict)  # recent unread per tab
+    unread: list[Message] = field(default_factory=list)  # newest few per tab, newest first
 
     def inbox_link(self) -> str:
         return gmail_base(self.email) + "#inbox"
+
+    def category_link(self, category: str) -> str:
+        if category == "primary":
+            return self.inbox_link()
+        return gmail_base(self.email) + f"#category/{category}"
+
+    def all_unread_link(self) -> str:
+        return gmail_base(self.email) + "#search/in%3Ainbox+is%3Aunread"

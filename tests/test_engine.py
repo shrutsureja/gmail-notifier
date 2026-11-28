@@ -118,6 +118,36 @@ class EngineTest(unittest.TestCase):
         rec2.wait_snapshot(lambda s: s.status == "ok")
         rec2.assert_no_mail()
 
+    def test_idle_waits_quietly_when_nothing_changes(self):
+        # Regression: a leftover EXISTS from SELECT made the worker re-sync in a tight loop.
+        self.mb.deliver("A <a@x.com>", "existing")
+        _, rec = self.start(settings=Settings(idle_timeout_minutes=5))
+        rec.wait_snapshot(lambda s: s.status == "ok")
+        time.sleep(2)
+        self.assertEqual(rec.snaps.qsize(), 0, "worker kept re-syncing with no mailbox changes")
+        self.mb.deliver("B <b@x.com>", "now one change")
+        new, _ = rec.wait_mail()
+        self.assertEqual(new[0].subject, "now one change")
+
+    def test_big_old_backlog_is_counted_but_not_shown(self):
+        for i in range(200):
+            self.mb.deliver(f"Shop{i} <s{i}@x.com>", f"old deal {i}", category="promotions", age_days=30)
+        for i in range(3):
+            self.mb.deliver(f"Friend{i} <f{i}@x.com>", f"recent hello {i}")
+        for i in range(6):
+            self.mb.deliver(f"Store{i} <n{i}@x.com>", f"new deal {i}", category="promotions")
+        _, rec = self.start()
+        snap = rec.wait_snapshot(lambda s: s.status == "ok")
+        self.assertEqual(snap.unread_count, 209)  # everything unread, however old
+        self.assertEqual(snap.recent_count, 9)  # only the last 7 days
+        self.assertEqual(snap.category_counts["primary"], 3)
+        self.assertEqual(snap.category_counts["promotions"], 6)
+        shown = [m.subject for m in snap.unread]
+        # newest few of *each* tab: all 3 primary are listed, promotions capped at 4
+        self.assertEqual(sorted(s for s in shown if s.startswith("recent")), [f"recent hello {i}" for i in range(3)])
+        self.assertEqual(len([s for s in shown if "deal" in s]), 4)
+        self.assertFalse(any(s.startswith("old deal") for s in shown))
+
     def test_categories(self):
         _, rec = self.start()
         rec.wait_snapshot(lambda s: s.status == "ok")

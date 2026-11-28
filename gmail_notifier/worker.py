@@ -16,8 +16,8 @@ import time
 from typing import Callable, Protocol
 
 from .config import Account, Settings
-from .imap import IdleTimeout, ImapConnection
-from .models import AccountSnapshot, Message
+from .imap import IdleTimeout, ImapConnection, imap_date
+from .models import CATEGORIES, AccountSnapshot, Message
 from .state import AccountState, StateStore
 
 log = logging.getLogger(__name__)
@@ -121,7 +121,9 @@ class AccountWorker(threading.Thread):
     def _copy(self) -> AccountSnapshot:
         s = self.snapshot
         return AccountSnapshot(email=s.email, label=s.label, status=s.status, error=s.error,
-                               unread_count=s.unread_count, unread=list(s.unread))
+                               unread_count=s.unread_count, recent_count=s.recent_count,
+                               recent_days=s.recent_days, category_counts=dict(s.category_counts),
+                               unread=list(s.unread))
 
     # -- the actual work --------------------------------------------------------
     def _sync(self, conn: ImapConnection, catchup: bool) -> None:
@@ -140,16 +142,39 @@ class AccountWorker(threading.Thread):
 
         unseen = conn.unseen_uids()
         unseen_set = set(unseen)
-        recent = unseen[-self.settings.max_items_per_account:]
         new_unseen = [u for u in new_uids if u in unseen_set][-MAX_NEW_TO_FETCH:]
 
-        wanted = set(recent) | set(new_unseen)
+        # Big inboxes often have thousands of old unread emails. The badge and
+        # menu only count unread from the last `recent_days` days.
+        days = self.settings.recent_days
+        criteria = ["UNSEEN"] + (["SINCE", imap_date(time.time() - days * 86400)] if days > 0 else [])
+        window = sorted(conn.search(*criteria)) if days > 0 else unseen
+        tabs = conn.category_uids(*criteria)
+        cat_of = {u: "primary" for u in window}
+        for name, uids in tabs.items():
+            for u in uids:
+                if cat_of.get(u) == "primary":
+                    cat_of[u] = name
+        by_cat: dict[str, list[int]] = {c: [] for c in CATEGORIES}
+        for u in window:
+            by_cat.setdefault(cat_of[u], []).append(u)
+        if tabs:  # Gmail: the newest few of *each* tab, so Primary isn't buried under Promotions
+            shown = {u for uids in by_cat.values() for u in uids[-self.settings.max_items_per_category:]}
+        else:
+            shown = set(window[-self.settings.max_items_per_account:])
+
+        wanted = shown | set(new_unseen)
         missing = sorted(u for u in wanted if u not in self._cache)
-        for m in conn.fetch(missing):
+        for m in conn.fetch(missing, categorize=not tabs):
             self._cache[m.uid] = m
         self._cache = {u: m for u, m in self._cache.items() if u in wanted}
+        for u, m in self._cache.items():
+            if u in cat_of:
+                m.category = cat_of[u]
+            elif tabs:  # new mail outside the window (odd dates): look it up directly
+                m.category = next((n for n, uids in tabs.items() if u in uids), "primary")
 
-        unread = [self._cache[u] for u in reversed(recent) if u in self._cache]
+        unread = sorted((self._cache[u] for u in shown if u in self._cache), key=lambda m: m.uid, reverse=True)
         new_msgs = [self._cache[u] for u in new_unseen if u in self._cache]
 
         if new_uids:
@@ -159,6 +184,9 @@ class AccountWorker(threading.Thread):
 
         self.snapshot.status, self.snapshot.error = "ok", ""
         self.snapshot.unread_count = len(unseen)
+        self.snapshot.recent_count = len(window)
+        self.snapshot.recent_days = days
+        self.snapshot.category_counts = {c: len(v) for c, v in by_cat.items()}
         self.snapshot.unread = unread
         snap = self._copy()
         self.listener.on_snapshot(snap)

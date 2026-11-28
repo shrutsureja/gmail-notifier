@@ -41,7 +41,7 @@ a{color:#f6a27f}a:hover{color:#ffc3a8}
   </div>
 
   <div style="position: absolute; top: 42px; right: 96px; width: 460px; background: #2b2b2b; border: 1px solid #424242; border-radius: 14px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 12px 32px rgba(0,0,0,0.45)">
-    <div style="padding: 8px 14px; font-size: 13px; color: #b5b5b5">{{total}} unread across 3 accounts</div>
+    <div style="padding: 8px 14px; font-size: 13px; color: #b5b5b5">{{total}} unread this week across 3 accounts</div>
     <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
     <div style="padding: 6px 14px 2px; font-size: 11px; letter-spacing: 0.08em; color: #b5b5b5; font-weight: 500">LATEST</div>
     <sc-for list="{{latest}}" as="m" hint-placeholder-count="5">
@@ -64,7 +64,14 @@ a{color:#f6a27f}a:hover{color:#ffc3a8}
               <sc-for list="{{c.items}}" as="m" hint-placeholder-count="2">
                 <button class="mi" type="button"><span style="font-family: 'Ubuntu Mono', ui-monospace, monospace; font-size: 13px; color: #b5b5b5; width: 30px; text-align: right; flex-shrink: 0">{{m.ago}}</span><span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><b style="font-weight: 500">{{m.sender}}</b> — {{m.subject}}</span></button>
               </sc-for>
+              <sc-if value="{{c.hasMore}}" hint-placeholder-val="{{ false }}">
+                <button class="mi" type="button" style="color: #f6a27f">{{c.moreLabel}}</button>
+              </sc-if>
             </sc-for>
+            <sc-if value="{{a.hasBacklog}}" hint-placeholder-val="{{ false }}">
+              <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
+              <button class="mi" type="button" style="color: #f6a27f">{{a.backlogLabel}}</button>
+            </sc-if>
             <div style="height: 1px; background: #424242; margin: 4px 6px"></div>
             <button class="mi" type="button" style="color: #b5b5b5">Remove this account…</button>
           </div>
@@ -93,29 +100,37 @@ class Component extends DCLogic {
   renderVals() {
     const C = { primary: '#8ab4f8', updates: '#fdd663', social: '#81c995', promotions: '#f28b82' };
     const data = [
-      { id: 'personal', label: 'Personal', email: 'me@gmail.com', count: 4, status: 'ok', cats: [
+      { id: 'personal', label: 'Personal', email: 'me@gmail.com', state: '141 this week · 12,483 unread', backlog: 'All 12,483 unread in Gmail…', cats: [
         { key: 'primary', title: 'PRIMARY', items: [
           { ago: '12m', sender: 'Alice Smith', subject: 'Lunch tomorrow?' },
           { ago: '2h', sender: 'Mom', subject: 'Photos from Sunday' } ] },
         { key: 'updates', title: 'UPDATES', items: [
           { ago: '3h', sender: 'Bank Alerts', subject: 'Your card statement is ready' } ] },
-        { key: 'promotions', title: 'PROMOTIONS', items: [
-          { ago: '5h', sender: 'Shoe Store', subject: '50% off everything this weekend' } ] } ] },
-      { id: 'work', label: 'Work', email: 'me@company.com', count: 2, status: 'ok', cats: [
+        { key: 'promotions', title: 'PROMOTIONS', count: 138, items: [
+          { ago: '5h', sender: 'Shoe Store', subject: '50% off everything this weekend' },
+          { ago: '6h', sender: 'Travel Deals', subject: 'Weekend flights from ₹2,999' } ] } ] },
+      { id: 'work', label: 'Work', email: 'me@company.com', state: '2 unread', cats: [
         { key: 'primary', title: 'PRIMARY', items: [
           { ago: '25m', sender: 'Priya Nair', subject: 'Q4 planning — agenda attached' } ] },
         { key: 'updates', title: 'UPDATES', items: [
           { ago: '1h', sender: 'GitHub', subject: '[gmail-notifier] PR #6 ready for review' } ] } ] },
-      { id: 'side', label: 'Side project', email: 'side@gmail.com', count: 1, status: 'ok', cats: [
+      { id: 'side', label: 'Side project', email: 'side@gmail.com', state: '1 unread', cats: [
         { key: 'social', title: 'SOCIAL', items: [
           { ago: '4h', sender: 'Meetup', subject: '3 new members joined your group' } ] } ] }
     ];
     const accounts = data.map((a) => {
       const expanded = this.state.open === a.id;
       return {
-        label: a.label, email: a.email, state: a.count + ' unread', stateColor: '#d6d6d6',
+        label: a.label, email: a.email, state: a.state, stateColor: '#d6d6d6',
+        hasBacklog: !!a.backlog, backlogLabel: a.backlog || '',
         expanded, rot: expanded ? 90 : 0, bg: expanded ? '#333333' : 'transparent',
-        cats: a.cats.map((c) => ({ title: c.title, count: c.items.length, color: C[c.key], items: c.items })),
+        cats: a.cats.map((c) => {
+          const count = c.count || c.items.length;
+          const more = count - c.items.length;
+          const name = c.title.charAt(0) + c.title.slice(1).toLowerCase();
+          return { title: c.title, count: count.toLocaleString('en-US'), color: C[c.key], items: c.items,
+                   hasMore: more > 0, moreLabel: '…' + more.toLocaleString('en-US') + ' more in ' + name };
+        }),
         toggle: () => this.setState({ open: expanded ? null : a.id })
       };
     });
@@ -128,7 +143,7 @@ class Component extends DCLogic {
     ];
     const paused = this.state.paused;
     return {
-      total: 7, latest, accounts, paused,
+      total: 144, latest, accounts, paused,
       pauseTrack: paused ? '#e95420' : '#555555', pauseKnob: paused ? 18 : 2,
       togglePause: () => this.setState({ paused: !paused })
     };

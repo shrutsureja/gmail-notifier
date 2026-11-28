@@ -33,7 +33,6 @@ ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
 APP_ICON = os.path.join(ICON_DIR, "gmail-notifier.svg")
 LATEST_COUNT = 5
 CATCHUP_GATHER_SECONDS = 4  # collect catch-up mail from all accounts into one notification
-MAX_INDIVIDUAL = 3  # more than this arriving at once -> one summary notification
 
 
 def default_open_uri(uri: str) -> None:
@@ -55,6 +54,13 @@ class TrayApp:
         self.sent: list[tuple[str, str]] = []  # (summary, body) – for tests/debugging
         self._catchup: list[Message] = []
         self._catchup_timer = 0
+        self._pending: list[Message] = []  # real-time mail waiting out the gather window
+        self._pending_timer = 0
+        self._popup_times: list[float] = []  # when individual popups were shown (rate limit)
+        self._burst: list[Message] = []  # mail folded into the running "N new emails" popup
+        self._burst_note: Notify.Notification | None = None
+        self._burst_last = 0.0
+        self._burst_more = False
         self._wall, self._mono = time.time(), time.monotonic()
 
         Notify.init("Gmail Notifier")
@@ -159,6 +165,11 @@ class TrayApp:
             self.rebuild_menu()
         return GLib.SOURCE_REMOVE
 
+    # How many popups in a row before switching to one summary that keeps updating.
+    GATHER_SECONDS = 3.0  # wait this long for more mail before notifying
+    BURST_LIMIT = 3  # individual popups allowed per BURST_WINDOW
+    BURST_WINDOW = 60.0  # seconds
+
     def _handle_new_mail(self, snap: AccountSnapshot, new: list[Message], catchup: bool) -> bool:
         new = [m for m in new if m.category in self.cfg.settings.notify]
         if not new or self.paused:
@@ -167,11 +178,30 @@ class TrayApp:
             self._catchup.extend(new)
             if not self._catchup_timer:
                 self._catchup_timer = GLib.timeout_add_seconds(CATCHUP_GATHER_SECONDS, self._flush_catchup)
-        elif len(new) <= MAX_INDIVIDUAL:
-            for m in new:
-                self.notify_message(m)
         else:
-            self.notify_summary(new, f"{len(new)} new emails")
+            self._pending.extend(new)
+            if not self._pending_timer:
+                self._pending_timer = GLib.timeout_add(int(self.GATHER_SECONDS * 1000), self._flush_pending)
+        return GLib.SOURCE_REMOVE
+
+    def _flush_pending(self) -> bool:
+        msgs, self._pending, self._pending_timer = self._pending, [], 0
+        now = time.monotonic()
+        self._popup_times = [t for t in self._popup_times if now - t < self.BURST_WINDOW]
+        if self._burst and now - self._burst_last < self.BURST_WINDOW:
+            self._burst.extend(msgs)  # still bursting: grow the existing summary
+        elif len(self._popup_times) + len(msgs) <= self.BURST_LIMIT:
+            for m in msgs:
+                self.notify_message(m)
+                self._popup_times.append(now)
+            return GLib.SOURCE_REMOVE
+        else:
+            # Popups already shown this minute? Then this summary is for the extra ones.
+            self._burst, self._burst_note, self._burst_more = list(msgs), None, bool(self._popup_times)
+        self._burst_last = now
+        n = len(self._burst)
+        title = f"{n} {'more ' if self._burst_more else ''}new email{'s' if n != 1 else ''}"
+        self._burst_note = self.notify_summary(self._burst, title, replace=self._burst_note)
         return GLib.SOURCE_REMOVE
 
     def _flush_catchup(self) -> bool:
@@ -201,7 +231,8 @@ class TrayApp:
                    actions=[("open", "Open", lambda: self.open_message(m)),
                             ("read", "Mark as read", lambda: self.mark_read(m))])
 
-    def notify_summary(self, msgs: list[Message], title: str) -> None:
+    def notify_summary(self, msgs: list[Message], title: str,
+                       replace: Notify.Notification | None = None) -> Notify.Notification:
         msgs = sorted(msgs, key=lambda m: m.date, reverse=True)
         per_account: dict[str, int] = {}
         for m in msgs:
@@ -218,26 +249,34 @@ class TrayApp:
         actions = [(f"inbox:{a}", f"Open {self.label_for(a)}",
                     (lambda a=a: self.open_uri(self.snapshots[a].inbox_link())))
                    for a in list(per_account)[:3]]
-        self._show(title, "\n".join(lines),
-                   default=lambda: self.open_uri(self.snapshots[busiest].inbox_link()),
-                   actions=actions if len(per_account) > 1 else [])
+        return self._show(title, "\n".join(lines),
+                          default=lambda: self.open_uri(self.snapshots[busiest].inbox_link()),
+                          actions=actions if len(per_account) > 1 else [], replace=replace)
 
     def _show(self, summary: str, body: str, default: Callable[[], None],
-              actions: list[tuple[str, str, Callable[[], None]]]) -> None:
+              actions: list[tuple[str, str, Callable[[], None]]],
+              replace: Notify.Notification | None = None) -> Notify.Notification:
+        """Show a notification, or update `replace` in place (same popup, new text)."""
         self.sent.append((summary, body))
-        n = Notify.Notification.new(summary, body, APP_ICON)
-        n.set_hint("desktop-entry", GLib.Variant("s", "gmail-notifier"))
-        n.set_category("email.arrived")
+        if replace is not None:
+            n = replace
+            n.update(summary, body, APP_ICON)
+            n.clear_actions()
+        else:
+            n = Notify.Notification.new(summary, body, APP_ICON)
+            n.set_hint("desktop-entry", GLib.Variant("s", "gmail-notifier"))
+            n.set_category("email.arrived")
+            n.connect("closed", lambda nn: self.notifications.pop(id(nn), None))
         if self.can_actions:
             n.add_action("default", "Open", lambda *_a: default())
             for key, label, cb in actions:
                 n.add_action(key, label, lambda *_a, cb=cb: cb())
-        n.connect("closed", lambda nn: self.notifications.pop(id(nn), None))
         self.notifications[id(n)] = n
         try:
             n.show()
         except GLib.Error as e:
             log.warning("could not show notification: %s", e.message)
+        return n
 
     # -- actions --------------------------------------------------------------------
     def open_message(self, m: Message) -> None:
@@ -251,6 +290,9 @@ class TrayApp:
         if snap:  # optimistic: drop it from the menu right away
             snap.unread = [x for x in snap.unread if x.uid != m.uid]
             snap.unread_count = max(0, snap.unread_count - 1)
+            snap.recent_count = max(0, snap.recent_count - 1)
+            if snap.category_counts.get(m.category):
+                snap.category_counts[m.category] -= 1
             self.rebuild_menu()
         w.mark_read([m.uid])
 
@@ -274,19 +316,32 @@ class TrayApp:
         self._sync_workers()
 
     # -- tray menu --------------------------------------------------------------------
+    def badge_count(self, s: AccountSnapshot) -> int:
+        """Recent unread in the tabs you get notified about (what the top-bar number shows)."""
+        if not s.category_counts:
+            return s.recent_count
+        return sum(n for c, n in s.category_counts.items() if c in self.cfg.settings.notify)
+
     def rebuild_menu(self) -> None:
         for child in self.menu.get_children():
             self.menu.remove(child)
         snaps = [self.snapshots[a.email] for a in self.cfg.accounts if a.email in self.snapshots]
-        total = sum(s.unread_count for s in snaps)
+        badge = sum(self.badge_count(s) for s in snaps)
         multi = len(snaps) > 1
+        period = _period(self.cfg.settings.recent_days)
 
-        self._header(self.menu, f"{total} unread" + (f" across {len(snaps)} accounts" if multi else "")
-                     if snaps else "No accounts set up yet")
+        if snaps:
+            header = f"{badge:,} unread{(' ' + period) if period else ''}"
+            header += f" across {len(snaps)} accounts" if multi else ""
+        else:
+            header = "No accounts set up yet"
+        self._header(self.menu, header)
         if not snaps:
             self._item(self.menu, "Add a Gmail account…", self._launch_add_account)
 
-        latest = sorted((m for s in snaps for m in s.unread), key=lambda m: m.date, reverse=True)[:LATEST_COUNT]
+        notify = self.cfg.settings.notify
+        latest = sorted((m for s in snaps for m in s.unread if m.category in notify),
+                        key=lambda m: m.date, reverse=True)[:LATEST_COUNT]
         if latest:
             self._sep(self.menu)
             self._header(self.menu, "LATEST")
@@ -313,7 +368,7 @@ class TrayApp:
         self._item(self.menu, "Open settings folder", lambda: self.open_uri("file://" + config_mod.config_dir()))
         self._item(self.menu, "Quit", self.quit)
         self.menu.show_all()
-        self._update_icon(snaps, total)
+        self._update_icon(snaps, badge)
 
     def _account_submenu(self, s: AccountSnapshot) -> Gtk.Menu:
         sub = Gtk.Menu()
@@ -321,24 +376,30 @@ class TrayApp:
         if s.status in ("auth_error", "error", "offline") and s.error:
             self._header(sub, "⚠ " + s.error)
             self._item(sub, "Retry now", lambda: self.workers[s.email].kick())
-        by_cat: dict[str, list[Message]] = {c: [] for c in CATEGORIES}
+        listed: dict[str, list[Message]] = {c: [] for c in CATEGORIES}
         for m in s.unread:
-            by_cat.setdefault(m.category, []).append(m)
-        for cat, msgs in by_cat.items():
-            if not msgs:
+            listed.setdefault(m.category, []).append(m)
+        period = _period(s.recent_days)
+        for cat in listed:
+            msgs = listed[cat]
+            count = s.category_counts.get(cat, len(msgs)) if s.category_counts else len(msgs)
+            if not count:
                 continue
+            title = CATEGORY_TITLES.get(cat, cat)
             self._sep(sub)
-            self._header(sub, f"{CATEGORY_TITLES.get(cat, cat).upper()}  ·  {len(msgs)}")
+            self._header(sub, f"{title.upper()}  ·  {count:,}")
             for m in msgs:
                 self._item(sub, f"{_ago(m.date):>4}  " + _ellipsize(f"{m.sender} — {m.subject}", 70),
                            lambda m=m: self.open_message(m))
-        if s.status == "ok" and not s.unread:
+            if count > len(msgs):
+                self._item(sub, f"…{count - len(msgs):,} more in {title}",
+                           lambda cat=cat: self.open_uri(s.category_link(cat)))
+        if s.status == "ok" and not s.recent_count:
             self._sep(sub)
-            self._header(sub, "Inbox zero 🎉")
-        elif s.unread_count > len(s.unread):
+            self._header(sub, f"Nothing new {period}" if s.unread_count else "Inbox zero 🎉")
+        if s.recent_days and s.unread_count > s.recent_count:
             self._sep(sub)
-            self._item(sub, f"…{s.unread_count - len(s.unread)} more unread in Gmail",
-                       lambda: self.open_uri(s.inbox_link()))
+            self._item(sub, f"All {s.unread_count:,} unread in Gmail…", lambda: self.open_uri(s.all_unread_link()))
         self._sep(sub)
         self._item(sub, "Remove this account…", lambda: self.confirm_remove_account(s.email))
         sub.show_all()
@@ -352,7 +413,8 @@ class TrayApp:
         else:
             icon = "gmail-notifier-read"
         self.indicator.set_icon_full(icon, f"{total} unread emails")
-        self.indicator.set_label(str(total) if total else "", "999")
+        # A five-digit number in the top bar is noise; cap what's drawn there.
+        self.indicator.set_label("" if not total else (str(total) if total < 1000 else "999+"), "999+")
 
     @staticmethod
     def _item(menu: Gtk.Menu, label: str, cb: Callable[[], None]) -> Gtk.MenuItem:
@@ -384,14 +446,26 @@ class TrayApp:
 
 
 def _account_line(s: AccountSnapshot) -> str:
-    state = {
-        "ok": f"{s.unread_count} unread",
-        "connecting": "connecting…",
-        "offline": "offline – retrying",
-        "auth_error": "⚠ login failed",
-        "error": "⚠ error",
-    }.get(s.status, s.status)
+    if s.status == "ok":
+        period = _period(s.recent_days)
+        if period and s.unread_count != s.recent_count:
+            state = f"{s.recent_count:,} {period} · {s.unread_count:,} unread"
+        else:
+            state = f"{s.unread_count:,} unread"
+    else:
+        state = {
+            "connecting": "connecting…",
+            "offline": "offline – retrying",
+            "auth_error": "⚠ login failed",
+            "error": "⚠ error",
+        }.get(s.status, s.status)
     return f"{s.label}  ({s.email})  —  {state}"
+
+
+def _period(days: int) -> str:
+    if days <= 0:
+        return ""
+    return {1: "today", 7: "this week", 30: "this month"}.get(days, f"in the last {days} days")
 
 
 def _mnemonic_safe(s: str) -> str:

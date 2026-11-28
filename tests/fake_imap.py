@@ -57,10 +57,12 @@ class Mailbox:
         self.logins = 0
 
     def deliver(self, sender: str, subject: str, body: str = "Hello there",
-                category: str = "primary", seen: bool = False, html: bool = False) -> FakeMsg:
+                category: str = "primary", seen: bool = False, html: bool = False,
+                age_days: float = 0) -> FakeMsg:
         with self.lock:
             m = FakeMsg(uid=self.next_uid, raw=make_email(sender, subject, body, html),
-                        category=category, gm_msgid=0x1800000000 + self.next_uid)
+                        category=category, gm_msgid=0x1800000000 + self.next_uid,
+                        date=time.time() - age_days * 86400)
             if seen:
                 m.flags.add("\\Seen")
             self.next_uid += 1
@@ -122,7 +124,7 @@ class _Handler(socketserver.StreamRequestHandler):
             try:
                 self.wfile.write(data + b"\r\n")
                 self.wfile.flush()
-            except OSError:
+            except (OSError, ValueError):  # client already disconnected
                 pass
 
     def handle(self):
@@ -239,6 +241,10 @@ class _Handler(socketserver.StreamRequestHandler):
                 elif t == "UID":
                     allowed = {m.uid for m in self._match_set(toks[i + 1])}
                     result = [m for m in result if m.uid in allowed]
+                    i += 1
+                elif t == "SINCE":
+                    since = time.mktime(time.strptime(toks[i + 1], "%d-%b-%Y"))
+                    result = [m for m in result if m.date >= since]
                     i += 1
                 elif t == "X-GM-RAW":
                     q = toks[i + 1]

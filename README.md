@@ -83,9 +83,13 @@ If you also want to revoke the app password at Google, delete it at <https://mya
 
 ```ini
 [settings]
-; which tabs pop up a notification (all four still show in the tray menu)
+; which tabs pop up a notification AND count toward the top-bar number
+; (all four tabs always show in the menu)
 notify = primary, updates, social, promotions
-max_items_per_account = 10
+; the badge and menu count unread from this many days (0 = all unread, however old)
+recent_days = 7
+; newest unread emails listed per tab in each account's submenu
+max_items_per_category = 4
 
 [account me@gmail.com]
 label = Personal
@@ -93,6 +97,10 @@ label = Personal
 [account me@company.com]
 label = Work
 ```
+
+**Lots of old unread email?** That's fine. The top-bar number only counts unread from the last `recent_days` days in your `notify` tabs, so a backlog of 12,000 old promotions doesn't drown out today's mail. Each account still shows the full total ("23 this week · 12,483 unread") and has a link to all of it in Gmail. To keep promotions out of the number and the popups, set `notify = primary, updates`.
+
+**Lots of email at once?** Mail is held for 3 seconds so a burst is grouped. After 3 popups in a minute, the rest go into one summary popup that keeps updating ("4 more new emails") instead of stacking up.
 
 After editing, restart the app (Quit, then launch "Gmail Notifier" from the app grid) – `add-account`/`remove-account` reload it automatically.
 

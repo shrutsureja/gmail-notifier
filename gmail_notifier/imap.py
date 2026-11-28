@@ -87,6 +87,9 @@ class ImapConnection:
         uidvalidity = int(self.M.response("UIDVALIDITY")[1][0])
         uidnext_raw = self.M.response("UIDNEXT")[1]
         uidnext = int(uidnext_raw[0]) if uidnext_raw and uidnext_raw[0] else None
+        # imaplib keeps SELECT's own "* N EXISTS" around. Drop it, so idle() only
+        # sees changes reported *after* this point (otherwise it re-syncs forever).
+        self.M.untagged_responses.clear()
         return uidvalidity, uidnext
 
     def search(self, *criteria: str) -> list[int]:
@@ -106,6 +109,14 @@ class ImapConnection:
     def unseen_uids(self) -> list[int]:
         return sorted(self.search("UNSEEN"))
 
+    def category_uids(self, *criteria: str) -> dict[str, set[int]]:
+        """UIDs per non-primary Gmail tab among messages matching `criteria`,
+        searched on the server (works for tens of thousands of messages)."""
+        if not self.gmail_ext:
+            return {}
+        return {name: set(self.search("X-GM-RAW", _quote(query), *criteria))
+                for name, query in CATEGORY_QUERIES.items()}
+
     def categorize(self, uids: list[int]) -> dict[int, str]:
         cats = {u: "primary" for u in uids}
         if not uids or not self.gmail_ext:
@@ -117,7 +128,7 @@ class ImapConnection:
                     cats[u] = name
         return cats
 
-    def fetch(self, uids: list[int]) -> list[Message]:
+    def fetch(self, uids: list[int], categorize: bool = True) -> list[Message]:
         out: list[Message] = []
         items = "UID FLAGS INTERNALDATE"
         if self.gmail_ext:
@@ -132,6 +143,8 @@ class ImapConnection:
                 msg = _parse_message(self.user, meta, body)
                 if msg is not None:
                     out.append(msg)
+        if not categorize:
+            return out
         cats = self.categorize([m.uid for m in out])
         for m in out:
             m.category = cats.get(m.uid, "primary")
@@ -164,16 +177,24 @@ class ImapConnection:
         tag = M._new_tag()
         M.send(tag + b" IDLE\r\n")
         M.sock.settimeout(timeout)
+        change = re.compile(rb"\* \d+ (EXISTS|EXPUNGE|FETCH)")
         try:
-            line = M.readline()
-            if not line.startswith(b"+"):
-                raise imaplib.IMAP4.error(f"IDLE rejected: {line!r}")
+            # The server may report a change *before* its "+ idling" reply.
+            changed = False
             while True:
                 line = M.readline()
                 if not line or line.startswith(b"* BYE"):
                     raise ConnectionError("server closed the connection")
-                if re.match(rb"\* \d+ (EXISTS|EXPUNGE|FETCH)", line):
+                if line.startswith(b"+"):
                     break
+                if line.startswith(tag):
+                    raise imaplib.IMAP4.error(f"IDLE rejected: {line!r}")
+                changed = changed or bool(change.match(line))
+            while not changed:
+                line = M.readline()
+                if not line or line.startswith(b"* BYE"):
+                    raise ConnectionError("server closed the connection")
+                changed = bool(change.match(line))
         except (socket.timeout, TimeoutError) as e:
             raise IdleTimeout() from e
         M.sock.settimeout(self.timeout)
@@ -197,6 +218,15 @@ def _enable_keepalive(sock: socket.socket) -> None:
                 sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, opt), val)
     except OSError:
         pass
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def imap_date(ts: float) -> str:
+    """IMAP date for SEARCH SINCE (month names must be English, whatever the locale)."""
+    t = time.localtime(ts)
+    return f"{t.tm_mday}-{_MONTHS[t.tm_mon - 1]}-{t.tm_year}"
 
 
 def _quote(s: str) -> str:

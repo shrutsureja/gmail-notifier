@@ -78,7 +78,7 @@ class TrayUITest(unittest.TestCase):
         self.wait_ready()
         labels = menu_labels(self.app.menu)
         print("\n".join(labels))
-        self.assertEqual(labels[0], "3 unread across 2 accounts")
+        self.assertEqual(labels[0], "3 unread this week across 2 accounts")
         self.assertIn("LATEST", labels)
         self.assertTrue(any(l.startswith("Personal  (me@gmail.com)  —  2 unread") for l in labels))
         self.assertTrue(any(l.startswith("Work  (work@gmail.com)  —  1 unread") for l in labels))
@@ -119,6 +119,45 @@ class TrayUITest(unittest.TestCase):
         self.assertEqual(summary, "6 new emails while you were away")
         self.assertIn("Personal: 4", body)
         self.assertIn("Work: 2", body)
+
+    def test_trickle_of_mail_becomes_one_growing_summary(self):
+        self.app.GATHER_SECONDS = 0.3
+        self.wait_ready()
+        mb = self.servers[0].mailbox
+        for i in range(7):
+            mb.deliver(f"List{i} <l{i}@x.com>", f"thread reply {i}")
+            pump_until(lambda: False, timeout=0.7)  # arrive ~0.7s apart: separate syncs
+        self.assertTrue(pump_until(lambda: len(self.app.sent) >= 7, timeout=5))
+        pump_until(lambda: False, timeout=0.8)
+        titles = [t for t, _ in self.app.sent]
+        print(titles)
+        self.assertEqual(titles[:3], ["List0  ·  Personal", "List1  ·  Personal", "List2  ·  Personal"])
+        self.assertEqual(titles[-1], "4 more new emails")
+        # the extra mail updates ONE popup instead of adding new ones
+        self.assertEqual(len(self.app.notifications), 4, "expected 3 popups + 1 updating summary")
+
+    def test_big_backlog_menu(self):
+        mb = self.servers[0].mailbox
+        for i in range(30):
+            mb.deliver(f"Shop{i} <s{i}@x.com>", f"old deal {i}", category="promotions", age_days=40)
+        for i in range(9):
+            mb.deliver(f"Store{i} <n{i}@x.com>", f"deal {i}", category="promotions")
+        mb.deliver("Alice <a@x.com>", "Lunch?")
+        self.wait_ready()
+        labels = menu_labels(self.app.menu)
+        print("\n".join(labels))
+        self.assertEqual(labels[0], "10 unread this week across 2 accounts")  # all tabs notify by default
+        self.app.cfg.settings.notify = ["primary", "updates"]
+        self.app.rebuild_menu()
+        labels = menu_labels(self.app.menu)
+        self.assertEqual(labels[0], "1 unread this week across 2 accounts")  # promotions now don't count
+        self.assertTrue(any("Personal  (me@gmail.com)  —  10 this week · 40 unread" in l for l in labels))
+        self.assertTrue(any("PROMOTIONS  ·  9" in l for l in labels))
+        self.assertTrue(any(l.strip() == "…5 more in Promotions" for l in labels))
+        self.assertTrue(any(l.strip() == "All 40 unread in Gmail…" for l in labels))
+        latest = labels[labels.index("LATEST") + 1:]
+        self.assertTrue(latest[0].startswith("Alice — Lunch?"))
+        self.assertFalse(any("deal" in l for l in latest[:1]))
 
     def test_remove_account_from_tray(self):
         os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()
