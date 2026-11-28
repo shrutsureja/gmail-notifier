@@ -1,0 +1,19 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-11-28T10:00:00Z"},
+  "title": "Gmail Notifier Tray UI",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1120, "h": 960, "title": "Recommended: accounts with Gmail tabs (click an account)", "is_interactive": true},
+    "Notifications.dc.html": {"x": 1200, "y": 0, "w": 960, "h": 960, "title": "Notifications"},
+    "ByCategory.dc.html": {"x": 0, "y": 1400, "w": 760, "h": 900, "title": "Option B: grouped by Gmail tab"},
+    "Compact.dc.html": {"x": 840, "y": 1400, "w": 760, "h": 900, "title": "Option C: compact counts"}
+  },
+  "order": ["Main.dc.html", "Notifications.dc.html", "ByCategory.dc.html", "Compact.dc.html"],
+  "notes": {
+    "row1": {"x": 0, "y": -300, "text": "Gmail Notifier: what you see in the top bar", "kind": "title1", "maxW": 2160},
+    "row2": {"x": 0, "y": 1100, "text": "Other menu layouts to compare", "kind": "title1", "maxW": 1600}
+  },
+  "designSystems": []
+}

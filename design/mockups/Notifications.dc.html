@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notifications</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&amp;family=Ubuntu+Mono&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#f6a27f}a:hover{color:#ffc3a8}
+.btn{flex:1;min-height:40px;border-radius:10px;border:0;background:#3d3d3d;color:#f2f2f2;font:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.btn:hover{background:#4a4a4a}
+.btn:focus-visible{outline:2px solid #e95420;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 960px; height: 960px; box-sizing: border-box; background: #2c0a22; font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; color: #f2f2f2; padding: 56px 64px; display: flex; flex-direction: column; gap: 40px">
+
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 12px; letter-spacing: 0.08em; color: #d9b8cc; font-weight: 500">A NEW EMAIL ARRIVES  ·  POPS UP WITHIN A SECOND OR TWO</div>
+    <div style="width: 440px; background: #2b2b2b; border: 1px solid #424242; border-radius: 16px; padding: 14px 16px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 28px rgba(0,0,0,0.45)">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #b5b5b5">
+        <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="12" width="56" height="40" rx="6" fill="#ffffff" stroke="#c5221f" stroke-width="3"></rect><path d="M6 15 L32 35 L58 15" fill="none" stroke="#ea4335" stroke-width="4" stroke-linejoin="round"></path></svg>
+        <span>Gmail Notifier  ·  now</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <div style="font-size: 15px; font-weight: 700">Alice Smith  ·  Personal</div>
+        <div style="font-size: 14px; font-weight: 500">Lunch tomorrow?</div>
+        <div style="font-size: 14px; color: #c9c9c9; line-height: 1.4">Are you free at 1pm? There's a new place near the office I've been wanting to try…</div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="btn" type="button">Open</button>
+        <button class="btn" type="button">Mark as read</button>
+      </div>
+    </div>
+    <div style="font-size: 13px; color: #d9b8cc">Clicking anywhere on it opens this exact email in Gmail, in the right account.</div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 12px; letter-spacing: 0.08em; color: #d9b8cc; font-weight: 500">YOU OPEN THE LAPTOP AFTER 6 HOURS  ·  ONE SUMMARY, NOT 14 POPUPS</div>
+    <div style="width: 440px; background: #2b2b2b; border: 1px solid #424242; border-radius: 16px; padding: 14px 16px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 28px rgba(0,0,0,0.45)">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #b5b5b5">
+        <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><rect x="4" y="12" width="56" height="40" rx="6" fill="#ffffff" stroke="#c5221f" stroke-width="3"></rect><path d="M6 15 L32 35 L58 15" fill="none" stroke="#ea4335" stroke-width="4" stroke-linejoin="round"></path></svg>
+        <span>Gmail Notifier  ·  now</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <div style="font-size: 15px; font-weight: 700">14 new emails while you were away</div>
+        <div style="font-size: 13px; color: #b5b5b5">Personal: 9  ·  Work: 4  ·  Side project: 1</div>
+        <div style="font-size: 14px; color: #dedede; line-height: 1.5; display: flex; flex-direction: column">
+          <span>• Priya Nair: Q4 planning — agenda attached</span>
+          <span>• Alice Smith: Lunch tomorrow?</span>
+          <span>• GitHub: [gmail-notifier] PR #6 ready for review</span>
+          <span>• Mom: Photos from Sunday</span>
+          <span style="color: #b5b5b5">…and 10 more – click the tray icon to see them</span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px">
+        <button class="btn" type="button">Open Personal</button>
+        <button class="btn" type="button">Open Work</button>
+        <button class="btn" type="button">Open Side project</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="font-size: 12px; letter-spacing: 0.08em; color: #d9b8cc; font-weight: 500">AN ACCOUNT NEEDS ATTENTION  ·  NO POPUP, THE ICON TURNS YELLOW</div>
+    <div style="display: flex; gap: 24px; align-items: flex-start">
+      <div style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; background: #000000">
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="2.5" y="5.5" width="17" height="12" rx="1.5" fill="none" stroke="#dedede" stroke-width="1.6"></rect><path d="M3 6.5 L11 12.5 L19 6.5" fill="none" stroke="#dedede" stroke-width="1.6" stroke-linejoin="round"></path><circle cx="17.5" cy="5.5" r="4" fill="#fbbc04" stroke="#000000" stroke-width="1"></circle></svg>
+        <span style="font-weight: 700; font-size: 14px">5</span>
+      </div>
+      <div style="width: 400px; background: #2b2b2b; border: 1px solid #424242; border-radius: 14px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px">
+        <div style="display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 14px; font-size: 14px; background: #333333; border-radius: 8px"><span style="flex: 1"><b style="font-weight: 500">Work</b>  <span style="color: #b5b5b5">(me@company.com)</span></span><span style="color: #fdd663; font-size: 13px">login failed</span></div>
+        <div style="padding: 6px 14px 6px 30px; font-size: 13px; color: #fdd663; line-height: 1.4">Login failed – check the app password (gmail-notifier add-account)</div>
+        <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px 0 30px; font-size: 14px">Retry now</div>
+        <div style="display: flex; align-items: center; min-height: 32px; padding: 0 14px 0 30px; font-size: 14px; color: #b5b5b5">Remove this account…</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
